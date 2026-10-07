@@ -97,6 +97,13 @@ export function ProductForm({
         <Label label="Texto de atribuição" hint="obrigatório para CC BY">
           <input name="attribution_text" defaultValue={d?.attribution_text ?? ""} className={inputClass} />
         </Label>
+        <Label label="Personalizador 3D na loja" hint="liga o produto a um modelo paramétrico (prévia 3D para o cliente)">
+          <select name="parametric_model" defaultValue={String(d?.params_schema?.model ?? "")} className={inputClass}>
+            <option value="">nenhum</option>
+            <option value="chaveiro-letra-nome">Chaveiro letra + nome</option>
+            <option value="caixa">Caixa paramétrica</option>
+          </select>
+        </Label>
       </fieldset>
 
       <div className="sm:col-span-2">

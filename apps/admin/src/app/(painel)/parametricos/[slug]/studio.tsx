@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { startGeneration } from "@/actions/parametric";
-import { StlViewer } from "@/components/stl-viewer";
+import { StlViewer } from "@print3d/shared/stl-viewer";
 import { Alert, Badge, Button, Label, inputClass } from "@/components/ui";
 import { optionLabel, schemaPayload, type SchemaField } from "@/lib/schema-form";
 

@@ -44,7 +44,7 @@ export default async function ProducaoPage({ searchParams }: { searchParams: Pro
               ) : o.next_step ? (
                 <form action={advanceOrder.bind(null, o.id, o.next_step, "/producao")}>
                   <button type="submit" className="w-full rounded-xl bg-primary px-4 py-4 text-lg font-semibold text-white active:scale-[0.99]">
-                    {label(o.next_step)} →
+                    {o.status === "aguardando_pagamento" ? "Pix recebido — iniciar produção" : `${label(o.next_step)} →`}
                   </button>
                 </form>
               ) : null}

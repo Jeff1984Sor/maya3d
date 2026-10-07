@@ -118,6 +118,7 @@ export interface ProductDetail extends ProductSummary {
     author: string | null;
     source_url: string | null;
     attribution_text: string | null;
+    params_schema?: { model?: string };
   };
   variants: Variant[];
   disclaimers: string[];

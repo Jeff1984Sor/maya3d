@@ -40,6 +40,7 @@ function designFields(f: FormData) {
     author: optional(f, "author"),
     source_url: optional(f, "source_url"),
     attribution_text: optional(f, "attribution_text"),
+    params_schema: text(f, "parametric_model") ? { model: text(f, "parametric_model") } : {},
   };
 }
 

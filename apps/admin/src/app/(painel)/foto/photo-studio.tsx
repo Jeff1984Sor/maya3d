@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { startPhoto } from "@/actions/photo";
-import { StlViewer } from "@/components/stl-viewer";
+import { StlViewer } from "@print3d/shared/stl-viewer";
 import { Alert, Badge, Button, Label, inputClass } from "@/components/ui";
 
 type Mode = "litofania" | "placa_multicor" | "cortador" | "chaveiro_silhueta";

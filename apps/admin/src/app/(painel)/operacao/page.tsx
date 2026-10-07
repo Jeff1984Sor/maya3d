@@ -17,6 +17,8 @@ type Ops = {
   local_delivery_fee: string;
   pickup_enabled: boolean;
   owner_whatsapp: string | null;
+  pix_key: string | null;
+  pix_name: string | null;
 };
 
 const nums = (v: FormDataEntryValue | null) =>
@@ -38,6 +40,8 @@ async function save(form: FormData): Promise<void> {
       local_delivery_fee: String(form.get("local_delivery_fee")).replace(",", "."),
       pickup_enabled: form.get("pickup_enabled") === "on",
       owner_whatsapp: String(form.get("owner_whatsapp") ?? "").trim() || null,
+      pix_key: String(form.get("pix_key") ?? "").trim() || null,
+      pix_name: String(form.get("pix_name") ?? "").trim() || null,
     });
   } catch (error) {
     redirect(`/operacao?erro=${encodeURIComponent(error instanceof AdminApiError ? error.message : "Falha ao salvar.")}`);
@@ -65,6 +69,12 @@ export default async function OperacaoPage({ searchParams }: { searchParams: Pro
           </Label>
           <Label label="Seu WhatsApp (avisos de venda)" hint="+5515999999999">
             <input name="owner_whatsapp" defaultValue={ops.owner_whatsapp ?? ""} className={inputClass} />
+          </Label>
+          <Label label="Chave Pix da loja" hint="aparece para o cliente no checkout (Pix manual até o gateway)">
+            <input name="pix_key" defaultValue={ops.pix_key ?? ""} className={inputClass} />
+          </Label>
+          <Label label="Nome do recebedor do Pix">
+            <input name="pix_name" defaultValue={ops.pix_name ?? ""} className={inputClass} />
           </Label>
           <Label label="Frete grátis local a partir de (R$)">
             <input name="local_free_shipping_min" inputMode="decimal" defaultValue={ops.local_free_shipping_min} className={inputClass} />

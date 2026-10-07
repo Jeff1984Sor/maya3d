@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { startSplit } from "@/actions/split";
-import { StlViewer } from "@/components/stl-viewer";
+import { StlViewer } from "@print3d/shared/stl-viewer";
 import { Alert, Badge, Button, Label, inputClass } from "@/components/ui";
 
 type Printer = { id: number; name: string; bed_x_mm: number; bed_y_mm: number; bed_z_mm: number };

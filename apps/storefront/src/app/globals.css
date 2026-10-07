@@ -1,5 +1,7 @@
 @import "tailwindcss";
 @import "@print3d/shared/tokens.css";
+/* componentes compartilhados (ex.: visualizador 3D) também usam classes do Tailwind */
+@source "../../../../packages/shared/src";
 
 @theme inline {
   --color-bg: var(--bg);

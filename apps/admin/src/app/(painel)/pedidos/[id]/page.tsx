@@ -61,7 +61,11 @@ export default async function PedidoPage({
                 <div className="flex flex-wrap gap-2">
                   {actions.map((to) => (
                     <Button key={to} formAction={advanceOrder.bind(null, id, to, back)} variant={to === order.next_step ? "primary" : "secondary"}>
-                      {to === "na_fila" && order.status === "amostra_pronta" ? "Cliente aprovou a amostra" : label(to)}
+                      {to === "na_fila" && order.status === "amostra_pronta"
+                        ? "Cliente aprovou a amostra"
+                        : to === "pago" && order.status === "aguardando_pagamento"
+                          ? "Pix recebido — iniciar produção"
+                          : label(to)}
                     </Button>
                   ))}
                 </div>

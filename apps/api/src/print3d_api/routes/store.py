@@ -1,5 +1,6 @@
 """API pública da loja (sem token de admin). Só expõe o que o cliente pode ver."""
 
+from decimal import Decimal
 from typing import Annotated, Any
 
 from arq.connections import ArqRedis
@@ -11,6 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from print3d_api.db.session import get_session
 from print3d_api.deps import get_queue, get_storage
+from print3d_api.models import OpsConfig
+from print3d_api.models.orders import OPS_CONFIG_ID
 from print3d_api.schemas.governance import GuardianCheckIn
 from print3d_api.schemas.store import (
     CartIn,
@@ -222,3 +225,22 @@ async def preview_file(
     if not path.is_file():
         raise HTTPException(status.HTTP_404_NOT_FOUND, "arquivo não existe")
     return FileResponse(path, media_type="model/stl")
+
+
+class StoreSettings(BaseModel):
+    free_shipping_min: Decimal | None
+    local_cities_ibge: list[str]
+    pickup_enabled: bool
+    pix_enabled: bool
+
+
+@router.get("/settings", response_model=StoreSettings)
+async def store_settings(session: Session) -> StoreSettings:
+    """O que a vitrine precisa para a faixa de frete grátis e o checkout."""
+    ops = await session.get(OpsConfig, OPS_CONFIG_ID)
+    return StoreSettings(
+        free_shipping_min=ops.local_free_shipping_min if ops else None,
+        local_cities_ibge=list(ops.local_cities_ibge) if ops else [],
+        pickup_enabled=bool(ops and ops.pickup_enabled),
+        pix_enabled=bool(ops and ops.pix_key),
+    )

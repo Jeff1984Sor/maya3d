@@ -1,5 +1,6 @@
 /** Rótulos dos status de pedido no painel (espelham print3d_core.orders). */
 export const STATUS_LABEL: Record<string, string> = {
+  aguardando_pagamento: "Aguardando pagamento",
   pago: "Pago",
   imprimindo_amostra: "Imprimindo amostra",
   amostra_pronta: "Amostra pronta",
@@ -15,6 +16,7 @@ export const STATUS_LABEL: Record<string, string> = {
 };
 
 export const ACTIVE_STATUSES = [
+  "aguardando_pagamento",
   "pago",
   "imprimindo_amostra",
   "amostra_pronta",
@@ -30,7 +32,7 @@ export const ACTIVE_STATUSES = [
 export function statusTone(status: string): "ok" | "danger" | "warn" | "muted" {
   if (status === "entregue") return "ok";
   if (status === "cancelado") return "danger";
-  if (status.includes("amostra") || status === "ajuste_solicitado") return "warn";
+  if (status.includes("amostra") || status === "ajuste_solicitado" || status === "aguardando_pagamento") return "warn";
   return "muted";
 }
 
