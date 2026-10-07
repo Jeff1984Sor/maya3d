@@ -9,7 +9,9 @@ from typing import Any
 import trimesh
 
 from print3d_core.storage import LocalStorage
+from print3d_mesh.parametric import OpenScadRunner
 from print3d_mesh.split import SplitOptions, SplitResult, split_mesh
+from print3d_mesh.split_labels import openscad_text_factory
 from print3d_worker.config import get_worker_settings
 
 PREFIX = "split"
@@ -45,6 +47,10 @@ def _export(result: SplitResult, out: Path) -> dict[str, Any]:
         "pieces": pieces,
         "pins": {"count": len(result.pins), "file": "pinos.stl" if result.pins else None},
         "faces_without_pins": result.faces_without_pins,
+        "cuts": {str(axis): coords for axis, coords in result.cuts.items()},
+        "seam_area_cm2": round(result.seam_area_mm2 / 100, 1),
+        "labels": result.labels,
+        "warnings": result.warnings,
         "exploded": "explodido.stl",
         "zip": "pecas.zip",
     }
@@ -66,8 +72,12 @@ async def split_model(
     opts = SplitOptions(**{**options, "bed_mm": tuple(options["bed_mm"])})
     out = storage.local_path(f"{PREFIX}/{job_id}/relatorio.json").parent
 
+    factory = openscad_text_factory(
+        OpenScadRunner(), size_mm=opts.label_size_mm, depth_mm=opts.label_depth_mm
+    )
+
     def work() -> dict[str, Any]:
-        return _export(split_mesh(mesh, opts), out)
+        return _export(split_mesh(mesh, opts, factory), out)
 
     report = await asyncio.to_thread(work)
     return {**report, "prefix": f"{PREFIX}/{job_id}"}

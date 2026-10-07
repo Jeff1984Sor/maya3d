@@ -12,10 +12,11 @@ export async function startSplit(form: FormData): Promise<SplitStart> {
   if (!(file instanceof File) || file.size === 0) return { error: "Escolha um arquivo STL." };
   const body = new FormData();
   body.append("file", file, file.name);
-  for (const key of ["printer_id", "pin_diameter_mm", "clearance_mm", "margin_mm"]) {
+  for (const key of ["printer_id", "pin_diameter_mm", "clearance_mm", "margin_mm", "protect_top_pct"]) {
     const value = String(form.get(key) ?? "").replace(",", ".");
     if (value) body.append(key, value);
   }
+  for (const key of ["smart_cuts", "label_joints"]) body.append(key, form.get(key) === "on" ? "true" : "false");
   try {
     const { job_id } = await adminApi<{ job_id: string }>("/mesh/split", { method: "POST", body });
     return { jobId: job_id };

@@ -93,6 +93,9 @@ async def split(
     pin_diameter_mm: Annotated[float, Form(ge=2, le=10)] = 4.0,
     clearance_mm: Annotated[float, Form(ge=0.05, le=0.8)] = 0.25,
     margin_mm: Annotated[float, Form(ge=0, le=20)] = 3.0,
+    smart_cuts: Annotated[bool, Form()] = True,
+    protect_top_pct: Annotated[float, Form(ge=0, le=60)] = 0.0,
+    label_joints: Annotated[bool, Form()] = True,
 ) -> SplitJob:
     """Peça grande → pedaços que cabem na impressora escolhida, com furos e pinos de encaixe."""
     printer = await session.get(Printer, printer_id)
@@ -124,6 +127,9 @@ async def split(
             "pin_diameter_mm": pin_diameter_mm,
             "clearance_mm": clearance_mm,
             "margin_mm": margin_mm,
+            "smart_cuts": smart_cuts,
+            "protect_top_pct": protect_top_pct,
+            "label_joints": label_joints,
         },
     )
     if job is None:

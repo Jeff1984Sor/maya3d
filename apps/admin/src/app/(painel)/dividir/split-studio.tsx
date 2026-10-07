@@ -12,6 +12,9 @@ type Report = {
   pieces: { name: string; file: string; bbox_mm: number[]; volume_cm3: number; fits: boolean }[];
   pins: { count: number; file: string | null };
   faces_without_pins: number;
+  seam_area_cm2: number;
+  labels: string[];
+  warnings: string[];
   exploded: string;
   zip: string;
 };
@@ -92,6 +95,19 @@ export function SplitStudio({ printers }: { printers: Printer[] }) {
         <Label label="Folga de borda da mesa (mm)">
           <input name="margin_mm" defaultValue="3" inputMode="decimal" className={inputClass} />
         </Label>
+        <Label label="Não cortar no topo (%)" hint="ex.: 30 para preservar rosto/cabeça de uma imagem">
+          <input name="protect_top_pct" type="number" min={0} max={60} defaultValue={0} className={inputClass} />
+        </Label>
+        <div className="space-y-2 sm:col-span-2">
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="smart_cuts" defaultChecked className="accent-[var(--secondary)]" />
+            Cortar onde a emenda fica menor (pescoços e vãos), não no meio
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="label_joints" defaultChecked className="accent-[var(--secondary)]" />
+            Gravar letras de montagem nas faces de corte (A com A, B com B…)
+          </label>
+        </div>
         <div className="sm:col-span-2">
           <Button type="submit" disabled={busy}>
             {busy ? (status === "processando" ? "Cortando e furando…" : "Enviando…") : "Dividir peça"}
@@ -108,10 +124,17 @@ export function SplitStudio({ printers }: { printers: Printer[] }) {
               <Badge tone="ok">{report.pieces.length} pedaço(s)</Badge>
               <Badge>cortes {report.plan.counts.join(" × ")}</Badge>
               <Badge>{report.pins.count} pino(s)</Badge>
+              <Badge>emenda {report.seam_area_cm2} cm²</Badge>
+              {report.labels.length > 0 && <Badge>letras {report.labels.join(", ")}</Badge>}
               <a href={url(report.zip)} className="ml-auto rounded-xl bg-primary px-4 py-2 font-medium text-white">
                 Baixar tudo (.zip)
               </a>
             </div>
+            {report.warnings.map((w) => (
+              <Alert key={w} tone="error">
+                {w}
+              </Alert>
+            ))}
             {report.faces_without_pins > 0 && (
               <Alert tone="error">
                 {report.faces_without_pins} face(s) de corte finas demais para pino: nelas, só cola.
@@ -149,8 +172,9 @@ export function SplitStudio({ printers }: { printers: Printer[] }) {
               )}
             </ul>
             <p className="text-xs text-muted">
-              Montagem: encaixe os pinos com cola nos furos de um pedaço, passe cola na face de corte e feche com o vizinho. O nome do arquivo
-              indica a posição (Pedaço 1_2_1 = 1º no comprimento, 2º na largura, 1º na altura).
+              Montagem: junte as faces com a mesma letra gravada (A com A). Encaixe os pinos com cola nos furos de um lado, passe cola na
+              face e feche com o vizinho. O nome do arquivo indica a posição (Pedaço 1_2_1 = 1º no comprimento, 2º na largura, 1º na
+              altura).
             </p>
           </>
         )}
