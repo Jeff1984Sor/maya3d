@@ -1,0 +1,42 @@
+# Renderizado por ops/nginx-render.sh (envsubst): ${STOREFRONT_HOST} ${ADMIN_HOST} ${API_HOST}
+# ${STOREFRONT_PORT} ${ADMIN_PORT} ${API_PORT} ${STACK}
+# O HTTPS é adicionado pelo certbot (--nginx) no bootstrap; não edite o bloco 443 à mão.
+
+limit_req_zone $binary_remote_addr zone=print3d_${STACK}_api:10m rate=20r/s;
+
+upstream print3d_${STACK}_storefront { server 127.0.0.1:${STOREFRONT_PORT}; keepalive 16; }
+upstream print3d_${STACK}_admin      { server 127.0.0.1:${ADMIN_PORT};      keepalive 16; }
+upstream print3d_${STACK}_api        { server 127.0.0.1:${API_PORT};        keepalive 16; }
+
+server {
+    listen 80;
+    server_name ${STOREFRONT_HOST};
+    include /etc/nginx/snippets/print3d-security.conf;
+    location / {
+        proxy_pass http://print3d_${STACK}_storefront;
+        include /etc/nginx/snippets/print3d-proxy.conf;
+    }
+}
+
+server {
+    listen 80;
+    server_name ${ADMIN_HOST};
+    include /etc/nginx/snippets/print3d-security.conf;
+    add_header X-Robots-Tag "noindex, nofollow" always;
+    location / {
+        proxy_pass http://print3d_${STACK}_admin;
+        include /etc/nginx/snippets/print3d-proxy.conf;
+    }
+}
+
+server {
+    listen 80;
+    server_name ${API_HOST};
+    include /etc/nginx/snippets/print3d-security.conf;
+    client_max_body_size 50m;   # uploads de STL/fotos (ajustável por fase)
+    location / {
+        limit_req zone=print3d_${STACK}_api burst=40 nodelay;
+        proxy_pass http://print3d_${STACK}_api;
+        include /etc/nginx/snippets/print3d-proxy.conf;
+    }
+}

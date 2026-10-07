@@ -1,0 +1,13 @@
+[project]
+name = "print3d-social"
+version = "0.1.0"
+description = "Integração MayaPost e geração de conteúdo/vídeo"
+requires-python = ">=3.12"
+dependencies = ["pydantic>=2.10"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/print3d_social"]

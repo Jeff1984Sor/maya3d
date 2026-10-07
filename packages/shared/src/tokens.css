@@ -1,0 +1,20 @@
+/* Tokens da identidade visual (spec 5.1). A marca (tabela brand_settings) sobrescreve em runtime. */
+:root {
+  --bg: #f7f4ef;
+  --surface: #ffffff;
+  --ink: #1e1e24;
+  --muted: #6b7280;
+  --primary: #ff6b2c;
+  --secondary: #14b8a6;
+  --border: #e7e2da;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #141418;
+    --surface: #1e1e24;
+    --ink: #f7f4ef;
+    --muted: #9ca3af;
+    --border: #2e2e36;
+  }
+}

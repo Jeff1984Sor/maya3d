@@ -1,0 +1,7 @@
+[Unit]
+Description=Backup do Postgres da stack %i
+
+[Service]
+Type=oneshot
+User=mayacorp22
+ExecStart=/bin/bash /srv/print3d/ops/backup.sh %i

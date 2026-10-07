@@ -1,0 +1,87 @@
+# Stack completa. Staging e produção usam ESTE arquivo com env diferentes:
+#   STACK=staging|prod        (env/<stack>.env versionado, sem segredos)
+#   STACK_ENV_FILE=...        (/srv/print3d/<stack>/.env no servidor, com segredos)
+#   IMAGE_TAG, REGISTRY       (injetados pelo ops/deploy.sh)
+# Não rode no Windows: use ops/deploy.sh no prod2.
+name: print3d-${STACK:?defina STACK}
+
+x-backend: &backend
+  image: ${REGISTRY:?}/print3d-backend:${IMAGE_TAG:?}
+  env_file: ${STACK_ENV_FILE:?}
+  environment:
+    ENVIRONMENT: ${ENVIRONMENT:?}
+    RELEASE: ${IMAGE_TAG}
+    REDIS_URL: redis://redis:6379/0
+  # Postgres roda no host (prod2), fora do compose.
+  extra_hosts: ["host.docker.internal:host-gateway"]
+  restart: unless-stopped
+  depends_on:
+    redis: { condition: service_healthy }
+  logging: &logging
+    driver: json-file
+    options: { max-size: "10m", max-file: "5" }
+
+services:
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "noeviction"]
+    volumes: ["redis-data:/data"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    logging: *logging
+
+  api:
+    <<: *backend
+    ports: ["127.0.0.1:${API_PORT:?}:8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/health/live', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+
+  worker:
+    <<: *backend
+    command: ["arq", "print3d_worker.settings.ArqSettings"]
+    healthcheck:
+      test: ["CMD", "python", "-m", "print3d_worker.healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 90s # primeiro heartbeat em até 1 min
+
+  storefront:
+    image: ${REGISTRY}/print3d-storefront:${IMAGE_TAG}
+    environment:
+      API_INTERNAL_URL: http://api:8000
+      RELEASE: ${IMAGE_TAG}
+    ports: ["127.0.0.1:${STOREFRONT_PORT:?}:3000"]
+    depends_on:
+      api: { condition: service_healthy }
+    healthcheck: &webcheck
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+    logging: *logging
+
+  admin:
+    image: ${REGISTRY}/print3d-admin:${IMAGE_TAG}
+    environment:
+      API_INTERNAL_URL: http://api:8000
+      RELEASE: ${IMAGE_TAG}
+    ports: ["127.0.0.1:${ADMIN_PORT:?}:3000"]
+    depends_on:
+      api: { condition: service_healthy }
+    healthcheck: *webcheck
+    restart: unless-stopped
+    logging: *logging
+
+volumes:
+  redis-data:
