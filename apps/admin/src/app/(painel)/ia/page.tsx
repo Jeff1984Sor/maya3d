@@ -41,7 +41,7 @@ export default async function IaPage({ searchParams }: { searchParams: Promise<{
     <>
       <PageHeader
         title="Inteligência artificial"
-        description="A chave e o fornecedor ficam no servidor (.env). Aqui você escolhe qual modelo da sua conta faz cada tarefa."
+        description="A chave fica em Integrações. Aqui você escolhe qual modelo da sua conta faz cada tarefa."
       />
       <Flash ok={params.ok} erro={params.erro} />
       <div className="mb-6 flex flex-wrap gap-2">
@@ -80,8 +80,8 @@ export default async function IaPage({ searchParams }: { searchParams: Promise<{
       <Card title="🔎 Busca por significado" className="mt-6">
         {!search.enabled ? (
           <p className="text-sm text-muted">
-            Desligada: escolha o modelo de embedding acima (precisa de chave OpenAI; com Claude, defina AI_EMBEDDING_PROVIDER=openai e
-            AI_EMBEDDING_API_KEY no servidor). Enquanto isso a loja busca por palavras.
+            Desligada: escolha o modelo de embedding acima (precisa de chave OpenAI; se a IA principal for Claude, cole uma chave OpenAI em
+            Integrações → busca por significado). Enquanto isso a loja busca por palavras.
           </p>
         ) : (
           <>

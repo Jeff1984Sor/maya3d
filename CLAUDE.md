@@ -49,7 +49,7 @@ Especificação completa: [docs/especificacao/prompt-impressao3d.md](docs/especi
 - Servidor: `srv1703721` (IP 2.25.130.240), usuário `deploy`, raiz `/srv/print3d`. Outros serviços rodam lá: usar só as portas 38000–38002 (staging) e 39000–39002 (prod). Postgres 16 do host via socket Unix.
 - `uv.lock` e `pnpm-lock.yaml` commitados (CI usa `--locked`/`--frozen-lockfile`).
 - Painel admin (v0.4.0): login por `ADMIN_PASSWORD` (no `.env` de cada stack), sessão HMAC; o token da API (`ADMIN_API_TOKEN`) nunca vai ao navegador. Cadastros simples são gerados de `apps/admin/src/lib/resources.ts` (campo novo na API = uma linha lá).
-- IA: provedor por `AI_PROVIDER` (claude|openai), chave só no `.env`; modelos escolhidos no painel (tabela `ai_config`), nunca no código. O dono usa OpenAI.
+- Chaves de integrações (IA, WhatsApp): o dono cola no painel **Integrações** (tabela `integration_settings`, segredos cifrados com Fernet; painel > `.env`). O dono não quer editar `.env`. Modelos de IA escolhidos na tela IA (tabela `ai_config`), nunca no código. O dono usa OpenAI.
 - CI: falhas de teste viram anotações (legíveis pela API pública); limite de 60 consultas/h — para acompanhar deploy, prefira olhar `/health/live` (release) do servidor.
 - Checagem local permitida: `npx pnpm@9.15.0 -r typecheck|lint|test` (o `next build` local falha só por symlink do Windows no standalone; no CI passa).
 - Produção no ar: v0.1.0 (loja :39001, admin :39002, API :39000). Domínio + HTTPS antes da Fase 3.

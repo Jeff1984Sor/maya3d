@@ -16,6 +16,7 @@ from print3d_api.routes.admin import (
     ai,
     costs,
     guardian,
+    integrations,
     mesh,
     orders,
     parametric,
@@ -126,6 +127,7 @@ router.include_router(products.router)
 router.include_router(orders.router)
 router.include_router(ai.router)
 router.include_router(photo.router)
+router.include_router(integrations.router)
 router.include_router(
     crud_router(
         Customer,

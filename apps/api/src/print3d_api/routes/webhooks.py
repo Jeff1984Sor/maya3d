@@ -12,7 +12,7 @@ from fastapi.responses import PlainTextResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from print3d_api.db.session import get_session
-from print3d_api.services import whatsapp
+from print3d_api.services import integrations, whatsapp
 from print3d_notify.meta import WhatsAppSettings, parse_webhook, verify_signature
 
 log = logging.getLogger("print3d.webhooks")
@@ -20,9 +20,9 @@ router = APIRouter(prefix="/v1/webhooks", tags=["webhooks"])
 Session = Annotated[AsyncSession, Depends(get_session)]
 
 
-def get_whatsapp_settings(request: Request) -> WhatsAppSettings:
-    settings: WhatsAppSettings = request.app.state.whatsapp
-    return settings
+async def get_whatsapp_settings(request: Request, session: Session) -> WhatsAppSettings:
+    """Painel Integrações > .env."""
+    return await integrations.whatsapp_settings(session, request.app.state.whatsapp)
 
 
 WA = Annotated[WhatsAppSettings, Depends(get_whatsapp_settings)]

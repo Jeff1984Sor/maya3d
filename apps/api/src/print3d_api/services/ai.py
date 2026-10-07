@@ -19,7 +19,7 @@ from print3d_api.models import AIConfig, BrandSettings, Niche
 from print3d_api.models.ai import AI_CONFIG_ID
 from print3d_api.models.brand import SINGLETON_ID
 from print3d_api.schemas.governance import GuardianCheckIn, ViolationOut
-from print3d_api.services import audit, guardian
+from print3d_api.services import audit, guardian, integrations
 
 ProviderFactory = Callable[[AISettings], ChatProvider]
 PROVIDER_ERRORS: tuple[type[Exception], ...] = (anthropic.APIError, openai.APIError)
@@ -43,7 +43,7 @@ class EnrichResult(BaseModel):
 
 async def effective_settings(session: AsyncSession) -> AISettings:
     """Ambiente (chave, fornecedor) + modelos escolhidos no painel por cima."""
-    base = AISettings()
+    base = await integrations.ai_settings(session)  # chave/fornecedor: painel > .env
     cfg = await session.get(AIConfig, AI_CONFIG_ID)
     if cfg is None:
         return base
@@ -61,7 +61,7 @@ async def status(session: AsyncSession, factory: ProviderFactory) -> AIStatus:
     configured = settings.api_key is not None and bool(settings.api_key.get_secret_value())
     out = AIStatus(configured=configured, provider=settings.provider, models=models)
     if not configured:
-        out.error = "chave não configurada no servidor (AI_API_KEY)"
+        out.error = "chave não configurada: cole em Integrações"
         return out
     try:
         out.available_models = await factory(settings).list_models()

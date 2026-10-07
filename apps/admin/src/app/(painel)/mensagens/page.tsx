@@ -90,14 +90,14 @@ export default async function MensagensPage({ searchParams }: { searchParams: Pr
         </div>
         {!wa.configured && (
           <p className="mt-3 text-sm text-muted">
-            Para ligar: preencha WHATSAPP_TOKEN, WHATSAPP_PHONE_NUMBER_ID e WHATSAPP_GRAPH_VERSION no .env do servidor e reinicie. Nada se perde
-            enquanto isso: as mensagens ficam aqui, pendentes.
+            Para ligar: cole o token, o ID do número e a versão em Integrações. Nada se perde enquanto isso: as mensagens ficam aqui,
+            pendentes.
           </p>
         )}
         {wa.configured && !wa.webhook_ready && (
           <p className="mt-3 text-sm text-muted">
-            Para receber respostas (botão Aprovar, seus comandos): WHATSAPP_APP_SECRET e WHATSAPP_VERIFY_TOKEN, e registrar o webhook
-            /v1/webhooks/whatsapp na Meta (precisa de domínio com HTTPS).
+            Para receber respostas (botão Aprovar, seus comandos): chave secreta do app e token de verificação em Integrações, e registrar
+            o webhook /v1/webhooks/whatsapp na Meta (precisa de domínio com HTTPS).
           </p>
         )}
       </Card>

@@ -18,6 +18,7 @@ const TOOLS = [
   { href: "/auditoria", label: "Auditoria" },
   { href: "/custos", label: "Custos" },
   { href: "/operacao", label: "Operação" },
+  { href: "/integracoes", label: "Integrações" },
   { href: "/ia", label: "IA" },
   { href: "/mensagens", label: "Caixa de saída" },
 ];

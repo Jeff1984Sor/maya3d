@@ -49,9 +49,7 @@ def embedding_backend(settings: AISettings) -> tuple[str | None, str | None]:
 def make_embedder(settings: AISettings) -> OpenAIEmbeddings:
     provider, key = embedding_backend(settings)
     if provider != "openai":
-        raise AINotConfiguredError(
-            "busca semântica sem fornecedor de embeddings (AI_EMBEDDING_PROVIDER=openai)"
-        )
+        raise AINotConfiguredError("busca por significado precisa de chave OpenAI (Integrações)")
     if not key:
-        raise AINotConfiguredError("busca semântica sem chave (AI_EMBEDDING_API_KEY)")
+        raise AINotConfiguredError("busca por significado sem chave (Integrações)")
     return OpenAIEmbeddings(key)

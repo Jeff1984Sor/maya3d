@@ -19,7 +19,7 @@ class OpenAIProvider:
     def __init__(self, settings: AISettings, client: Any | None = None) -> None:
         if client is None:
             if settings.api_key is None or not settings.api_key.get_secret_value():
-                raise AINotConfiguredError("IA não configurada: defina AI_API_KEY no .env")
+                raise AINotConfiguredError("IA não configurada: cole a chave em Integrações")
             client = openai.AsyncOpenAI(api_key=settings.api_key.get_secret_value())
         self._client = client
 

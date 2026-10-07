@@ -21,7 +21,7 @@ from print3d_api.middleware import RequestContextMiddleware
 from print3d_api.routes import admin, brand, health, store, webhooks
 from print3d_api.services import search
 from print3d_api.services.brand import BrandService
-from print3d_notify.meta import MetaWhatsAppProvider, WhatsAppSettings
+from print3d_notify.meta import WhatsAppSettings
 
 log = logging.getLogger("print3d.api")
 
@@ -39,12 +39,11 @@ def create_app(
         app.state.health_checker = HealthChecker(engine, redis)
         app.state.queue = await create_pool(RedisSettings.from_dsn(settings.redis_url))
         dispatcher: asyncio.Task[None] | None = None
-        wa: WhatsAppSettings = app.state.whatsapp
-        if wa.configured and settings.environment != "ci":
-            app.state.dispatch_now = asyncio.Event()
+        app.state.dispatch_now = asyncio.Event()
+        if settings.environment != "ci":  # liga sozinho quando o WhatsApp for configurado
             dispatcher = asyncio.create_task(
                 run_dispatcher(
-                    app.state.session_factory, MetaWhatsAppProvider(wa), app.state.dispatch_now
+                    app.state.session_factory, app.state.whatsapp, app.state.dispatch_now
                 )
             )
         indexer: asyncio.Task[None] | None = None

@@ -20,8 +20,8 @@ from print3d_api.schemas.orders import (
     PrintJobOut,
     QueueGroup,
 )
-from print3d_api.services import audit, orders, whatsapp
-from print3d_notify.meta import MetaWhatsAppProvider, WhatsAppSettings
+from print3d_api.services import audit, integrations, orders, whatsapp
+from print3d_notify.meta import MetaWhatsAppProvider
 
 router = APIRouter(tags=["admin: pedidos e produção"])
 Session = Annotated[AsyncSession, Depends(get_session)]
@@ -151,7 +151,7 @@ class WhatsAppStatus(BaseModel):
 
 @router.get("/whatsapp/status", response_model=WhatsAppStatus)
 async def whatsapp_status(request: Request, session: Session) -> WhatsAppStatus:
-    wa: WhatsAppSettings = request.app.state.whatsapp
+    wa = await integrations.whatsapp_settings(session, request.app.state.whatsapp)
     counts = dict(
         (
             await session.execute(
@@ -174,7 +174,7 @@ async def whatsapp_status(request: Request, session: Session) -> WhatsAppStatus:
 @router.post("/notifications/dispatch")
 async def dispatch_now(request: Request, session: Session) -> dict[str, int]:
     """Envia as pendentes agora (o despachante automático faz isso a cada ciclo)."""
-    wa: WhatsAppSettings = request.app.state.whatsapp
+    wa = await integrations.whatsapp_settings(session, request.app.state.whatsapp)
     if not wa.configured:
         raise HTTPException(status.HTTP_409_CONFLICT, "WhatsApp não configurado no servidor")
     return {"sent": await whatsapp.dispatch_pending(session, MetaWhatsAppProvider(wa), limit=100)}
