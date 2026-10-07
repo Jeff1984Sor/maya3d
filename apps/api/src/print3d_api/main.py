@@ -15,7 +15,7 @@ from print3d_api.db.session import create_engine, create_session_factory
 from print3d_api.health import HealthChecker
 from print3d_api.logging import configure_logging
 from print3d_api.middleware import RequestContextMiddleware
-from print3d_api.routes import admin, brand, health
+from print3d_api.routes import admin, brand, health, store
 from print3d_api.services.brand import BrandService
 
 log = logging.getLogger("print3d.api")
@@ -65,4 +65,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(health.router)
     app.include_router(brand.router)
     app.include_router(admin.router)
+    app.include_router(store.router)
     return app

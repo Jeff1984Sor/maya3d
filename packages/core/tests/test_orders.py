@@ -68,3 +68,10 @@ def test_impressao_digital_estavel_e_sensivel() -> None:
 def test_chave_de_material() -> None:
     assert material_key([3, 1, 3]) == "1+3"
     assert material_key([]) == "sem-material"
+
+
+def test_loja_aguarda_pagamento_antes_de_produzir() -> None:
+    check_transition("aguardando_pagamento", "pago")
+    check_transition("aguardando_pagamento", "cancelado")
+    with pytest.raises(TransitionError):
+        check_transition("aguardando_pagamento", "na_fila")

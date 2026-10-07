@@ -122,6 +122,8 @@ class OrderSummary(BaseModel):
 
 
 class OrderDetail(OrderSummary):
+    payment_method: str | None = None
+    public_token: str | None = None
     subtotal: Decimal
     shipping: Decimal
     discount: Decimal
@@ -153,6 +155,8 @@ class OpsConfigIn(BaseModel):
     local_delivery_fee: Decimal = Field(ge=0)
     pickup_enabled: bool = False
     owner_whatsapp: str | None = Field(default=None, max_length=32)
+    pix_key: str | None = Field(default=None, max_length=140)
+    pix_name: str | None = Field(default=None, max_length=100)
 
 
 class OpsConfigOut(OpsConfigIn):

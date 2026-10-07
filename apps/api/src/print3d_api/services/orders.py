@@ -1,6 +1,7 @@
 """Pedidos e produção (spec 5.0): criação com regra de amostra, avanço de status com
 notificações, fila de impressão agrupada por material/cor e impressão digital de combinações."""
 
+import secrets
 from collections import defaultdict
 from collections.abc import Sequence
 from datetime import UTC, datetime
@@ -105,7 +106,41 @@ async def _remember(session: AsyncSession, items: Sequence[OrderItem], order: Or
     await session.flush()
 
 
-async def create_order(session: AsyncSession, data: OrderCreate) -> Order:
+async def _start_production(
+    session: AsyncSession, order: Order, items: Sequence[OrderItem], ops: OpsConfig
+) -> None:
+    """Pago → fila (ou amostra). Só aqui nascem as impressões e o aviso de venda ao dono."""
+    for item in items:
+        session.add(
+            _job(item, 1 if item.needs_sample else item.quantity, order, sample=item.needs_sample)
+        )
+    with_sample = any(i.needs_sample for i in items)
+    order.status = (S.IMPRIMINDO_AMOSTRA if with_sample else S.NA_FILA).value
+    note = (
+        f"amostra exigida: item acima de {ops.sample_threshold} unidades nunca produzido antes"
+        if with_sample
+        else None
+    )
+    await _event(session, order, order.status, "sistema", note)
+    resumo = "; ".join(f"{i.quantity}x {i.title}" for i in items)
+    await notifications.notify_owner(
+        session,
+        "nova_venda",
+        f"Nova venda #{order.number} ({order.channel}): {resumo}. Total R$ {order.total}.",
+        order,
+    )
+    await notifications.notify_customer_status(session, order, S(order.status))
+
+
+async def create_order(
+    session: AsyncSession,
+    data: OrderCreate,
+    *,
+    awaiting_payment: bool = False,
+    payment_method: str | None = None,
+) -> Order:
+    """Venda registrada. Loja (Pix manual/gateway) nasce aguardando pagamento e só entra em
+    produção quando o pagamento é confirmado."""
     ops = await _ops(session)
     if data.customer_id and await session.get(Customer, data.customer_id) is None:
         raise OrderError(f"cliente {data.customer_id} não existe", not_found=True)
@@ -117,7 +152,7 @@ async def create_order(session: AsyncSession, data: OrderCreate) -> Order:
         channel=data.channel,
         external_id=data.external_id,
         customer_id=data.customer_id,
-        status=S.PAGO.value,
+        status=(S.AGUARDANDO_PAGAMENTO if awaiting_payment else S.PAGO).value,
         subtotal=subtotal,
         shipping=data.shipping,
         discount=data.discount,
@@ -127,10 +162,12 @@ async def create_order(session: AsyncSession, data: OrderCreate) -> Order:
         promised_date=data.promised_date,
         notes=data.notes,
         sample_rounds=0,
+        payment_method=payment_method,
+        public_token=secrets.token_urlsafe(18),
     )
     session.add(order)
     await session.flush()
-    await _event(session, order, S.PAGO.value, "sistema", f"venda via {data.channel}")
+    await _event(session, order, order.status, "sistema", f"venda via {data.channel}")
 
     items: list[OrderItem] = []
     for line in data.items:
@@ -163,27 +200,10 @@ async def create_order(session: AsyncSession, data: OrderCreate) -> Order:
         items.append(item)
     await session.flush()
 
-    for item in items:
-        session.add(
-            _job(item, 1 if item.needs_sample else item.quantity, order, sample=item.needs_sample)
-        )
-    with_sample = any(i.needs_sample for i in items)
-    order.status = (S.IMPRIMINDO_AMOSTRA if with_sample else S.NA_FILA).value
-    note = (
-        f"amostra exigida: item acima de {ops.sample_threshold} unidades nunca produzido antes"
-        if with_sample
-        else None
-    )
-    await _event(session, order, order.status, "sistema", note)
-
-    resumo = "; ".join(f"{i.quantity}x {i.title}" for i in items)
-    await notifications.notify_owner(
-        session,
-        "nova_venda",
-        f"Nova venda #{order.number} ({order.channel}): {resumo}. Total R$ {order.total}.",
-        order,
-    )
-    await notifications.notify_customer_status(session, order, S(order.status))
+    if awaiting_payment:
+        await notifications.notify_customer_status(session, order, S.AGUARDANDO_PAGAMENTO)
+    else:
+        await _start_production(session, order, items, ops)
     await audit.record(
         session,
         actor="sistema",
@@ -191,7 +211,11 @@ async def create_order(session: AsyncSession, data: OrderCreate) -> Order:
         entity_type="order",
         entity_id=order.id,
         decision=order.status,
-        payload={"canal": order.channel, "total": str(order.total), "amostra": with_sample},
+        payload={
+            "canal": order.channel,
+            "total": str(order.total),
+            "amostra": any(i.needs_sample for i in items),
+        },
     )
     await session.commit()
     await session.refresh(order)
@@ -218,6 +242,22 @@ async def advance(
     items = await _items(session, order.id)
     ops = await _ops(session)
 
+    if new is S.PAGO and previous is S.AGUARDANDO_PAGAMENTO:
+        order.status = S.PAGO.value
+        await _event(session, order, S.PAGO.value, actor, note or "pagamento confirmado")
+        await _start_production(session, order, items, ops)
+        await audit.record(
+            session,
+            actor=actor,
+            action="pagamento_confirmado",
+            entity_type="order",
+            entity_id=order.id,
+            decision=order.status,
+            reason=note,
+        )
+        await session.commit()
+        await session.refresh(order)
+        return order
     if new is S.NA_FILA and previous is S.AMOSTRA_PRONTA:
         # aprovado: o restante entra na fila e a combinação fica conhecida
         for item in items:
@@ -378,6 +418,8 @@ async def detail(session: AsyncSession, order_id: int) -> OrderDetail:
     return OrderDetail.model_validate(
         {
             **_summary(order, items),
+            "payment_method": order.payment_method,
+            "public_token": order.public_token,
             "subtotal": order.subtotal,
             "shipping": order.shipping,
             "discount": order.discount,

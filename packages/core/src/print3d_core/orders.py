@@ -11,6 +11,7 @@ from typing import Any, Final
 
 
 class OrderStatus(StrEnum):
+    AGUARDANDO_PAGAMENTO = "aguardando_pagamento"  # loja: Pix manual/gateway ainda não pago
     PAGO = "pago"
     IMPRIMINDO_AMOSTRA = "imprimindo_amostra"
     AMOSTRA_PRONTA = "amostra_pronta"
@@ -28,6 +29,7 @@ class OrderStatus(StrEnum):
 S = OrderStatus
 
 TRANSITIONS: Final[dict[OrderStatus, frozenset[OrderStatus]]] = {
+    S.AGUARDANDO_PAGAMENTO: frozenset({S.PAGO, S.CANCELADO}),
     S.PAGO: frozenset({S.NA_FILA, S.IMPRIMINDO_AMOSTRA, S.CANCELADO}),
     S.IMPRIMINDO_AMOSTRA: frozenset({S.AMOSTRA_PRONTA, S.CANCELADO}),
     S.AMOSTRA_PRONTA: frozenset({S.NA_FILA, S.AJUSTE_SOLICITADO, S.CANCELADO}),
@@ -44,6 +46,7 @@ TRANSITIONS: Final[dict[OrderStatus, frozenset[OrderStatus]]] = {
 
 # Rótulos para o cliente (linha do tempo em "Meus pedidos" e mensagens).
 CUSTOMER_LABELS: Final[dict[OrderStatus, str]] = {
+    S.AGUARDANDO_PAGAMENTO: "Aguardando pagamento",
     S.PAGO: "Pagamento confirmado",
     S.IMPRIMINDO_AMOSTRA: "Imprimindo a amostra",
     S.AMOSTRA_PRONTA: "Amostra pronta para sua aprovação",
@@ -60,6 +63,7 @@ CUSTOMER_LABELS: Final[dict[OrderStatus, str]] = {
 
 # Botões grandes da tela Produção: próximo passo "natural" de cada estado.
 NEXT_STEP: Final[dict[OrderStatus, OrderStatus]] = {
+    S.AGUARDANDO_PAGAMENTO: S.PAGO,
     S.PAGO: S.NA_FILA,
     S.NA_FILA: S.IMPRIMINDO,
     S.IMPRIMINDO: S.ACABAMENTO,

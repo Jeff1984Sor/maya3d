@@ -40,6 +40,9 @@ class OpsConfig(TimestampMixin, Base):
     local_delivery_fee: Mapped[Decimal] = mapped_column(Numeric(10, 2))
     pickup_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     owner_whatsapp: Mapped[str | None] = mapped_column(String(32))
+    # Pix manual (até o gateway): chave e nome do recebedor exibidos no checkout
+    pix_key: Mapped[str | None] = mapped_column(String(140))
+    pix_name: Mapped[str | None] = mapped_column(String(100))
 
 
 class Customer(IdMixin, TimestampMixin, Base):
@@ -75,6 +78,9 @@ class Order(IdMixin, TimestampMixin, Base):
     promised_date: Mapped[date | None] = mapped_column(Date)
     sample_rounds: Mapped[int] = mapped_column(Integer, default=0)
     notes: Mapped[str | None] = mapped_column(Text)
+    payment_method: Mapped[str | None] = mapped_column(String(20))  # pix_manual | gateway...
+    # Link secreto de acompanhamento ("Meus pedidos" sem login, até existir conta com domínio)
+    public_token: Mapped[str | None] = mapped_column(String(40), unique=True)
 
 
 class OrderItem(IdMixin, TimestampMixin, Base):
@@ -148,3 +154,13 @@ class Notification(IdMixin, TimestampMixin, Base):
     attempts: Mapped[int] = mapped_column(Integer, default=0)
     last_error: Mapped[str | None] = mapped_column(Text)
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class Cart(TimestampMixin, Base):
+    """Carrinho do visitante (cookie). Vira pedido no checkout."""
+
+    __tablename__ = "carts"
+
+    token: Mapped[str] = mapped_column(String(40), primary_key=True)
+    items: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list)
+    cep: Mapped[str | None] = mapped_column(String(9))
