@@ -7,6 +7,7 @@ from print3d_api.models.content import ProductImage, StoreLayout, StorePage
 from print3d_api.models.governance import AuditLog, GuardianTermOverride, License, Niche
 from print3d_api.models.integrations import IntegrationSetting
 from print3d_api.models.library import LibraryCollection, LibraryModel
+from print3d_api.models.marketplace import ChannelAccount, ChannelListing, MarketplaceQuestion
 from print3d_api.models.orders import (
     Cart,
     Customer,
@@ -27,8 +28,10 @@ __all__ = [
     "AuditLog",
     "BrandSettings",
     "Cart",
+    "ChannelAccount",
     "ChannelCopy",
     "ChannelFeeBand",
+    "ChannelListing",
     "CostConfig",
     "Customer",
     "Design",
@@ -38,6 +41,7 @@ __all__ = [
     "LibraryCollection",
     "LibraryModel",
     "License",
+    "MarketplaceQuestion",
     "Material",
     "Niche",
     "Notification",

@@ -71,6 +71,25 @@ FIELDS: tuple[Field, ...] = (
     ),
     Field("WHATSAPP_TEMPLATE_LANG", "whatsapp", "Idioma do template", hint="pt_BR"),
     Field(
+        "PUBLIC_API_URL",
+        "geral",
+        "Endereço público da API",
+        hint="https://api.<domínio> — retorno do Mercado Livre/Meta (exige domínio)",
+    ),
+    Field(
+        "PUBLIC_STORE_URL",
+        "geral",
+        "Endereço público da loja",
+        hint="https://<domínio> — fotos dos anúncios nos marketplaces",
+    ),
+    Field(
+        "ML_CLIENT_ID",
+        "mercadolivre",
+        "App ID",
+        hint="developers.mercadolivre.com.br → sua aplicação",
+    ),
+    Field("ML_CLIENT_SECRET", "mercadolivre", "Chave secreta", secret=True),
+    Field(
         "MELHORENVIO_TOKEN",
         "frete",
         "Token do Melhor Envio",
@@ -261,3 +280,8 @@ async def shipping_quoter(session: AsyncSession) -> ShippingQuoter | None:
         contact_email=email,
         services=get("MELHORENVIO_SERVICES"),
     )
+
+
+def env_value(key: str) -> str | None:
+    """Valor do .env para chaves sem classe de configuração própria."""
+    return os.environ.get(key) or None

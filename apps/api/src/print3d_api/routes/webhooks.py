@@ -5,14 +5,14 @@ A Meta só aceita URL HTTPS: este endpoint fica pronto e é registrado quando ho
 
 import json
 import logging
-from typing import Annotated
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from print3d_api.db.session import get_session
-from print3d_api.services import integrations, whatsapp
+from print3d_api.services import integrations, mercadolivre, whatsapp
 from print3d_notify.meta import WhatsAppSettings, parse_webhook, verify_signature
 
 log = logging.getLogger("print3d.webhooks")
@@ -67,3 +67,26 @@ async def whatsapp_events(request: Request, session: Session, wa: WA) -> dict[st
     if handled and kick is not None:
         kick.set()
     return {"received": handled}
+
+
+async def _ml_process(app_state: Any, payload: dict[str, Any]) -> None:
+    async with app_state.session_factory() as session:
+        try:
+            result = await mercadolivre.handle_notification(session, payload)
+            log.info("notificação ML", extra={"topico": payload.get("topic"), "resultado": result})
+        except Exception:
+            await session.rollback()
+            log.exception("falha ao tratar notificação do ML")
+
+
+@router.post("/mercadolivre")
+async def mercadolivre_events(request: Request, background: BackgroundTasks) -> dict[str, str]:
+    """O ML exige resposta 200 rápida; o trabalho (ler pedido/pergunta na API do ML com o
+    nosso token) acontece depois."""
+    try:
+        payload = await request.json()
+    except ValueError:
+        return {"status": "ignorada"}
+    if isinstance(payload, dict) and payload.get("topic") and payload.get("resource"):
+        background.add_task(_ml_process, request.app.state, payload)
+    return {"status": "recebida"}

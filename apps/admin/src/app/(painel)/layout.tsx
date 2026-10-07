@@ -22,6 +22,7 @@ const TOOLS = [
   { href: "/paginas", label: "Páginas da loja" },
   { href: "/marca", label: "Marca" },
   { href: "/operacao", label: "Operação" },
+  { href: "/mercado-livre", label: "Mercado Livre" },
   { href: "/integracoes", label: "Integrações" },
   { href: "/ia", label: "IA" },
   { href: "/mensagens", label: "Caixa de saída" },

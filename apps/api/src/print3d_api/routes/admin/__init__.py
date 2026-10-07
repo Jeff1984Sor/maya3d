@@ -19,6 +19,7 @@ from print3d_api.routes.admin import (
     guardian,
     integrations,
     library,
+    mercadolivre,
     mesh,
     orders,
     parametric,
@@ -132,6 +133,7 @@ router.include_router(photo.router)
 router.include_router(integrations.router)
 router.include_router(library.router)
 router.include_router(content.router)
+router.include_router(mercadolivre.router)
 router.include_router(
     crud_router(
         Customer,

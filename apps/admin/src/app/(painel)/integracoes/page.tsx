@@ -22,6 +22,18 @@ const GROUPS = [
     next: { href: "/mensagens", label: "caixa de saída →" },
   },
   {
+    id: "geral",
+    title: "Endereços públicos (domínio)",
+    help: "Quando o domínio estiver no ar com HTTPS: endereço da API e da loja. Os marketplaces e a Meta usam estes endereços para retorno, avisos e fotos.",
+    next: { href: "/mercado-livre", label: "Mercado Livre →" },
+  },
+  {
+    id: "mercadolivre",
+    title: "Mercado Livre",
+    help: "Crie uma aplicação no portal de desenvolvedores do Mercado Livre e cole o App ID e a chave secreta. Depois conecte a conta na página Mercado Livre.",
+    next: { href: "/mercado-livre", label: "conectar conta →" },
+  },
+  {
     id: "frete",
     title: "Frete (Melhor Envio)",
     help: "Cotação automática de Correios e transportadoras para fora de Sorocaba. Gere o token no painel do Melhor Envio e preencha também o CEP de origem em Operação.",

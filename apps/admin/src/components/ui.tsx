@@ -18,7 +18,7 @@ export function PageHeader({ title, description, children }: { title: string; de
   );
 }
 
-export function Card({ title, children, className }: { title?: string; children: ReactNode; className?: string }) {
+export function Card({ title, children, className }: { title?: ReactNode; children: ReactNode; className?: string }) {
   return (
     <section className={cx("rounded-2xl border border-border bg-surface p-5", className)}>
       {title && <h2 className="mb-4 font-heading text-base font-semibold">{title}</h2>}

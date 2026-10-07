@@ -3,10 +3,12 @@ import { notFound } from "next/navigation";
 import { addVariant, deleteProduct, deleteVariant, setStatus, updateProduct } from "@/actions/products";
 import type { ChannelCopy } from "@/actions/ai";
 import type { ProductImage } from "@/actions/content";
+import type { MlListing, MlPreview, MlStatus } from "@/actions/mercadolivre";
 import { ChannelCopyPanel } from "@/components/channel-copy-panel";
 import { ConfirmSubmit } from "@/components/confirm-submit";
 import { Flash } from "@/components/flash";
 import { GuardianBadge, StatusBadge } from "@/components/product-badges";
+import { MlPublish } from "@/components/ml-publish";
 import { ProductForm } from "@/components/product-form";
 import { ProductImages } from "@/components/product-images";
 import { Alert, Badge, Button, Card, Label, PageHeader, inputClass } from "@/components/ui";
@@ -21,9 +23,10 @@ export default async function ProdutoPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ ok?: string; erro?: string }>;
+  searchParams: Promise<{ ok?: string; erro?: string; ml_variant?: string; ml_price?: string; ml_type?: string }>;
 }) {
   const id = Number((await params).id);
+  const query = await searchParams;
   if (!Number.isInteger(id)) notFound();
 
   let product: ProductDetail;
@@ -33,14 +36,29 @@ export default async function ProdutoPage({
     if (error instanceof AdminApiError && error.status === 404) notFound();
     throw error;
   }
-  const [niches, materials, packaging, copies, images, quotes] = await Promise.all([
+  const [niches, materials, packaging, copies, images, mlStatus, mlListings, quotes] = await Promise.all([
     api.get<Niche[]>("/niches"),
     api.get<Material[]>("/materials"),
     api.get<Packaging[]>("/packaging"),
     api.get<ChannelCopy[]>(`/ai/channel-copy?product_id=${id}`),
     api.get<ProductImage[]>(`/products/${id}/images`),
+    api.get<MlStatus>("/mercadolivre/status"),
+    api.get<MlListing[]>(`/mercadolivre/listings?product_id=${id}`),
     Promise.all(product.variants.map((v) => api.get<VariantQuote>(`/products/${id}/variants/${v.id}/quote`))),
   ]);
+  let mlPreview: MlPreview | null = null;
+  let mlPreviewError: string | null = null;
+  if (query.ml_variant && query.ml_price && mlStatus.connected) {
+    try {
+      mlPreview = await api.post<MlPreview>("/mercadolivre/preview", {
+        variant_id: Number(query.ml_variant),
+        price: query.ml_price,
+        listing_type: query.ml_type ?? "gold_special",
+      });
+    } catch (error) {
+      mlPreviewError = error instanceof AdminApiError ? error.message : "Falha ao consultar o Mercado Livre.";
+    }
+  }
   const materialName = (mid: string) => {
     const m = materials.find((x) => String(x.id) === mid);
     return m ? `${m.kind} ${m.color_name}` : `material ${mid}`;
@@ -53,7 +71,7 @@ export default async function ProdutoPage({
           ← produtos
         </Link>
       </PageHeader>
-      <Flash {...await searchParams} />
+      <Flash ok={query.ok} erro={query.erro} />
 
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <StatusBadge product={product} />
@@ -156,6 +174,15 @@ export default async function ProdutoPage({
 
         <aside className="space-y-6">
           <ProductImages productId={id} images={images} />
+          <MlPublish
+            productId={id}
+            variants={product.variants}
+            status={mlStatus}
+            listings={mlListings}
+            preview={mlPreview}
+            previewError={mlPreviewError}
+            query={query}
+          />
           <Card title="Guardião">
             {product.guardian_status === "bloqueado" ? (
               <Alert tone="error">{product.guardian_reason}</Alert>

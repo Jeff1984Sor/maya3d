@@ -18,7 +18,7 @@ from print3d_api.dispatcher import run_dispatcher
 from print3d_api.health import HealthChecker
 from print3d_api.logging import configure_logging
 from print3d_api.middleware import RequestContextMiddleware
-from print3d_api.routes import admin, brand, health, store, webhooks
+from print3d_api.routes import admin, brand, channels, health, store, webhooks
 from print3d_api.services import search
 from print3d_api.services.brand import BrandService
 from print3d_notify.meta import WhatsAppSettings
@@ -95,4 +95,5 @@ def create_app(
     app.include_router(admin.router)
     app.include_router(store.router)
     app.include_router(webhooks.router)
+    app.include_router(channels.router)
     return app
