@@ -17,6 +17,7 @@ atrás de um Provider, com testes de contrato e estado "não configurado" visív
 | 7 | Loja: catálogo, produto, carrinho, checkout Pix, frete (regra Sorocaba), acompanhamento | ✅ v0.6 (conta/login com domínio) |
 | 8 | IA: provedores Claude/OpenAI, tela IA, "✨ Enriquecer" ✅ v0.5 · Redator por canal, busca por significado, assistente da loja ✅ v0.8 · Guardião visual | parcial |
 | 8b | Biblioteca de modelos (acervos enviados pelo painel → organizados, medidos → produto) · paramétricos cruz/placa/lembrancinha/suporte · Integrações no painel | ✅ v0.9 |
+| 8c | CMS: fotos de produto, marca (nome/cores/logo), página inicial (aviso, destaque, vitrines) e páginas institucionais no painel | ✅ v0.10 |
 | 9 | Mercado Livre e Shopee (OAuth, publicação, pedidos, perguntas) | |
 | 10 | Fatiador e renders em containers; CMS; conteúdo/MayaPost; app Expo; Analista | |
 

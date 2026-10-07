@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from print3d_api.models import Design, LibraryCollection, LibraryModel, Printer, Product
 from print3d_api.schemas.catalog import DesignIn, ProductCreate
-from print3d_api.services import audit, catalog
+from print3d_api.services import audit, catalog, content
 from print3d_core.storage import LocalStorage
 
 PREFIX = "library"
@@ -179,7 +179,10 @@ def _main_file(model: LibraryModel) -> str | None:
 
 
 async def create_product(
-    session: AsyncSession, model_id: int, title: str | None
+    session: AsyncSession,
+    model_id: int,
+    title: str | None,
+    storage: LocalStorage | None = None,
 ) -> tuple[LibraryModel, Product]:
     model = await session.get(LibraryModel, model_id)
     if model is None:
@@ -210,6 +213,9 @@ async def create_product(
         ),
     )
     model.status, model.product_id = "produto", product.id
+    if model.cover and storage is not None:
+        cover = storage.local_path(f"{PREFIX}/{col.slug}/modelos/{model.key}/{model.cover}")
+        await content.add_image_from_file(session, storage, product.id, cover)
     await session.commit()
     return model, product
 

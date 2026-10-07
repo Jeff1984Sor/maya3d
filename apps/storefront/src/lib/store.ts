@@ -12,6 +12,14 @@ export type ProductCard = {
   customizable: boolean;
   price_from: string | null;
   colors: string[];
+  image?: string | null;
+};
+export type StoreImage = { url: string; thumb: string; alt: string | null };
+export type PageLink = { slug: string; title: string };
+export type Home = {
+  announcement: string | null;
+  hero: { title?: string | null; subtitle?: string | null; image?: string | null; cta_label?: string | null; cta_href?: string | null };
+  sections: { title: string; href: string | null; products: ProductCard[] }[];
 };
 export type Variant = {
   id: number;
@@ -30,6 +38,7 @@ export type Product = ProductCard & {
   age_rating: string | null;
   variants: Variant[];
   parametric_model: string | null;
+  images?: StoreImage[];
 };
 export type CartLine = {
   variant_id: number;

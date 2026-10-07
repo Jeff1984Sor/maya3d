@@ -39,6 +39,13 @@ class StoreProductCard(BaseModel):
     customizable: bool
     price_from: Decimal | None
     colors: list[str]  # hex para as bolinhas abaixo do preço
+    image: str | None = None  # miniatura da capa (/m/...)
+
+
+class StoreImage(BaseModel):
+    url: str
+    thumb: str
+    alt: str | None
 
 
 class StoreProduct(StoreProductCard):
@@ -49,6 +56,7 @@ class StoreProduct(StoreProductCard):
     age_rating: str | None
     variants: list[StoreVariant]
     parametric_model: str | None  # quando o produto tem personalizador 3D
+    images: list[StoreImage] = []
 
 
 class CartLineIn(BaseModel):

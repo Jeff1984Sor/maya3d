@@ -172,10 +172,10 @@ async def list_models(slug: str, session: Session, storage: Storage) -> list[Any
 
 @router.post("/models/{model_id}/product")
 async def product_from_model(
-    model_id: int, payload: ProductFromModel, session: Session
+    model_id: int, payload: ProductFromModel, session: Session, storage: Storage
 ) -> dict[str, Any]:
     try:
-        model, product = await library.create_product(session, model_id, payload.title)
+        model, product = await library.create_product(session, model_id, payload.title, storage)
     except library.LibraryError as exc:
         raise _http(exc) from exc
     return {

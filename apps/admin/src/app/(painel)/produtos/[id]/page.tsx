@@ -2,11 +2,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { addVariant, deleteProduct, deleteVariant, setStatus, updateProduct } from "@/actions/products";
 import type { ChannelCopy } from "@/actions/ai";
+import type { ProductImage } from "@/actions/content";
 import { ChannelCopyPanel } from "@/components/channel-copy-panel";
 import { ConfirmSubmit } from "@/components/confirm-submit";
 import { Flash } from "@/components/flash";
 import { GuardianBadge, StatusBadge } from "@/components/product-badges";
 import { ProductForm } from "@/components/product-form";
+import { ProductImages } from "@/components/product-images";
 import { Alert, Badge, Button, Card, Label, PageHeader, inputClass } from "@/components/ui";
 import { AdminApiError, api } from "@/lib/admin-api";
 import { formatMoney } from "@/lib/form";
@@ -31,11 +33,12 @@ export default async function ProdutoPage({
     if (error instanceof AdminApiError && error.status === 404) notFound();
     throw error;
   }
-  const [niches, materials, packaging, copies, quotes] = await Promise.all([
+  const [niches, materials, packaging, copies, images, quotes] = await Promise.all([
     api.get<Niche[]>("/niches"),
     api.get<Material[]>("/materials"),
     api.get<Packaging[]>("/packaging"),
     api.get<ChannelCopy[]>(`/ai/channel-copy?product_id=${id}`),
+    api.get<ProductImage[]>(`/products/${id}/images`),
     Promise.all(product.variants.map((v) => api.get<VariantQuote>(`/products/${id}/variants/${v.id}/quote`))),
   ]);
   const materialName = (mid: string) => {
@@ -152,6 +155,7 @@ export default async function ProdutoPage({
         </div>
 
         <aside className="space-y-6">
+          <ProductImages productId={id} images={images} />
           <Card title="Guardião">
             {product.guardian_status === "bloqueado" ? (
               <Alert tone="error">{product.guardian_reason}</Alert>

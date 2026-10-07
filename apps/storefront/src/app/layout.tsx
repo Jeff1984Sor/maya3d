@@ -5,7 +5,7 @@ import { currentCart } from "@/actions/cart";
 import { Assistant } from "@/components/assistant";
 import { Announcement, Footer, Header } from "@/components/shop";
 import { api } from "@/lib/api";
-import { storeApiOrNull, type Niche, type StoreSettings } from "@/lib/store";
+import { storeApiOrNull, type Home, type Niche, type PageLink, type StoreSettings } from "@/lib/store";
 import "./globals.css";
 
 const heading = Space_Grotesk({ subsets: ["latin"], variable: "--f-heading" });
@@ -21,11 +21,13 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const [brand, niches, settings, cart] = await Promise.all([
+  const [brand, niches, settings, cart, pages, home] = await Promise.all([
     api.getBrandOrFallback(),
     storeApiOrNull<Niche[]>("/niches", 60),
     storeApiOrNull<StoreSettings>("/settings", 60),
     currentCart(),
+    storeApiOrNull<PageLink[]>("/pages", 60),
+    storeApiOrNull<Home>("/home", 60),
   ]);
   const cartCount = cart?.items.reduce((n, i) => n + i.quantity, 0) ?? 0;
   return (
@@ -35,10 +37,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <style dangerouslySetInnerHTML={{ __html: brandThemeCss(brand.colors) }} />
       </head>
       <body className="flex min-h-dvh flex-col font-sans antialiased">
-        <Announcement freeMin={settings?.free_shipping_min ?? null} />
-        <Header brand={brand.name} niches={niches ?? []} cartCount={cartCount} />
+        <Announcement freeMin={settings?.free_shipping_min ?? null} text={home?.announcement} />
+        <Header brand={brand.name} logo={brand.logo_light_url} niches={niches ?? []} cartCount={cartCount} />
         <main className="flex-1">{children}</main>
-        <Footer brand={brand.name} />
+        <Footer brand={brand.name} pages={pages ?? []} />
         {settings?.assistant_enabled && <Assistant brand={brand.name} />}
       </body>
     </html>

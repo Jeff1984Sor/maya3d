@@ -28,6 +28,7 @@ from print3d_api.models import (
     PackagingBox,
     Printer,
     Product,
+    ProductImage,
     Variant,
 )
 from print3d_api.models.orders import OPS_CONFIG_ID
@@ -45,13 +46,14 @@ from print3d_api.schemas.store import (
     PublicOrder,
     ShippingOption,
     ShippingQuote,
+    StoreImage,
     StoreNiche,
     StoreProduct,
     StoreProductCard,
     StoreVariant,
     TimelineEntry,
 )
-from print3d_api.services import guardian, orders, search
+from print3d_api.services import guardian, media, orders, search
 from print3d_api.services.cep import CepProvider
 from print3d_api.services.pricing import margin_for, select_bands
 from print3d_core import CostInputs, FeeBand, PricingError, ProfitRule, compute_cost, quote_channel
@@ -175,7 +177,35 @@ async def _variants(session: AsyncSession, product_ids: Sequence[int]) -> dict[i
     return out
 
 
-def _card(ctx: PriceContext, product: Product, variants: list[Variant]) -> StoreProductCard:
+async def _images(
+    session: AsyncSession, product_ids: Sequence[int]
+) -> dict[int, list[ProductImage]]:
+    out: dict[int, list[ProductImage]] = {pid: [] for pid in product_ids}
+    if product_ids:
+        rows = await session.scalars(
+            select(ProductImage)
+            .where(ProductImage.product_id.in_(product_ids))
+            .order_by(ProductImage.position, ProductImage.id)
+        )
+        for img in rows.all():
+            out[img.product_id].append(img)
+    return out
+
+
+async def _cards(
+    session: AsyncSession, ctx: PriceContext, products: Sequence[Product]
+) -> list[StoreProductCard]:
+    ids = [p.id for p in products]
+    variants, images = await _variants(session, ids), await _images(session, ids)
+    return [
+        _card(ctx, p, variants[p.id], images[p.id][0].thumb_key if images[p.id] else None)
+        for p in products
+    ]
+
+
+def _card(
+    ctx: PriceContext, product: Product, variants: list[Variant], image_key: str | None = None
+) -> StoreProductCard:
     prices = [price_variant(ctx, v, product.category)["pix"] for v in variants]
     priced = [p for p in prices if p is not None]
     hexes = {c.hex for v in variants for c in _colors(ctx, v)}
@@ -187,6 +217,7 @@ def _card(ctx: PriceContext, product: Product, variants: list[Variant]) -> Store
         customizable=product.customizable,
         price_from=min(priced) if priced else None,
         colors=sorted(hexes)[:8],
+        image=media.public_url(image_key),
     )
 
 
@@ -203,8 +234,7 @@ async def cards_by_ids(
         for i in ids
         if i in rows and material_available(rows[i].min_material, ctx.printable)
     ][:limit]
-    variants = await _variants(session, [p.id for p in products])
-    return [_card(ctx, p, variants[p.id]) for p in products]
+    return await _cards(session, ctx, products)
 
 
 async def list_products(
@@ -236,8 +266,37 @@ async def list_products(
     products = (await session.scalars(stmt.limit(limit * 2).offset(offset))).all()
     ctx = await load_context(session)
     products = [p for p in products if material_available(p.min_material, ctx.printable)][:limit]
-    variants = await _variants(session, [p.id for p in products])
-    return [_card(ctx, p, variants[p.id]) for p in products]
+    return await _cards(session, ctx, products)
+
+
+async def section_cards(
+    session: AsyncSession, kind: str, value: str, limit: int
+) -> list[StoreProductCard]:
+    """Vitrine da página inicial: novidades, por nicho, categoria, tag ou escolhidos a dedo."""
+    stmt = _sellable_stmt().order_by(Product.updated_at.desc())
+    value = value.strip()
+    if kind == "niche" and value:
+        stmt = stmt.where(Product.niche == value)
+    elif kind == "category" and value:
+        stmt = stmt.where(Product.category == value)
+    elif kind == "tag" and value:
+        stmt = stmt.where(Product.tags.contains([value]))
+    elif kind == "manual":
+        slugs = [s.strip() for s in value.split(",") if s.strip()][:24]
+        if not slugs:
+            return []
+        rows = {p.slug: p for p in (await session.scalars(stmt.where(Product.slug.in_(slugs))))}
+        ctx = await load_context(session)
+        chosen = [
+            rows[s]
+            for s in slugs
+            if s in rows and material_available(rows[s].min_material, ctx.printable)
+        ]
+        return await _cards(session, ctx, chosen[:limit])
+    products = (await session.scalars(stmt.limit(limit * 2))).all()
+    ctx = await load_context(session)
+    products = [p for p in products if material_available(p.min_material, ctx.printable)][:limit]
+    return await _cards(session, ctx, products)
 
 
 async def list_niches(session: AsyncSession) -> list[StoreNiche]:
@@ -271,7 +330,8 @@ async def product_detail(session: AsyncSession, slug: str) -> StoreProduct:
         attribution = design.attribution_text or (
             f"Modelo de {design.author}" if design.author else None
         )
-    card = _card(ctx, product, variants)
+    images = (await _images(session, [product.id]))[product.id]
+    card = _card(ctx, product, variants, images[0].thumb_key if images else None)
     return StoreProduct(
         **card.model_dump(),
         description=product.description,
@@ -297,6 +357,14 @@ async def product_detail(session: AsyncSession, slug: str) -> StoreProduct:
             for v in variants
         ],
         parametric_model=str(model) if model else None,
+        images=[
+            StoreImage(
+                url=media.public_url(i.key) or "",
+                thumb=media.public_url(i.thumb_key) or "",
+                alt=i.alt or product.title,
+            )
+            for i in images
+        ],
     )
 
 

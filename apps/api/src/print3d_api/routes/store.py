@@ -16,7 +16,7 @@ from print3d_ai import AINotConfiguredError, AIOutputError, AIRefusedError
 from print3d_ai.prompts import shop_assistant
 from print3d_api.db.session import get_session
 from print3d_api.deps import get_ai_factory, get_embedder_factory, get_queue, get_storage
-from print3d_api.models import OpsConfig
+from print3d_api.models import OpsConfig, StorePage
 from print3d_api.models.orders import OPS_CONFIG_ID
 from print3d_api.schemas.governance import GuardianCheckIn
 from print3d_api.schemas.store import (
@@ -31,7 +31,7 @@ from print3d_api.schemas.store import (
     StoreProduct,
     StoreProductCard,
 )
-from print3d_api.services import ai, assistant, guardian, search, store
+from print3d_api.services import ai, assistant, content, guardian, media, search, store
 from print3d_api.services.cep import CepError, CepProvider, ViaCepProvider
 from print3d_core.storage import LocalStorage, StorageError
 from print3d_mesh.parametric import MODELS
@@ -325,3 +325,55 @@ async def ask_assistant(
         raise HTTPException(
             status.HTTP_502_BAD_GATEWAY, "o assistente não conseguiu responder agora"
         ) from exc
+
+
+# --- Conteúdo (CMS) -------------------------------------------------------------------------
+@router.get("/home", response_model=content.HomeOut)
+async def home(session: Session) -> content.HomeOut:
+    return await content.home(session)
+
+
+class PageLink(BaseModel):
+    slug: str
+    title: str
+
+
+class PageOut(PageLink):
+    body: str
+
+
+@router.get("/pages", response_model=list[PageLink])
+async def footer_pages(session: Session) -> list[PageLink]:
+    return [
+        PageLink(slug=p.slug, title=p.title)
+        for p in await content.pages(session, only_published=True)
+        if p.in_footer
+    ]
+
+
+@router.get("/pages/{slug}", response_model=PageOut)
+async def page(slug: str, session: Session) -> PageOut:
+    found = await session.get(StorePage, slug)
+    if found is None or not found.published:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "página não encontrada")
+    return PageOut(slug=found.slug, title=found.title, body=found.body)
+
+
+@router.get("/media/{key:path}")
+async def media_file(
+    key: str, storage: Annotated[LocalStorage, Depends(get_storage)]
+) -> FileResponse:
+    """Imagens públicas da loja. Só o prefixo media/ (fotos, logo, destaque) e só WebP."""
+    if not key.startswith(f"{media.PREFIX}/") or not key.endswith(".webp"):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "não encontrado")
+    try:
+        path = storage.local_path(key)
+    except StorageError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "não encontrado") from exc
+    if not path.is_file():
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "não encontrado")
+    return FileResponse(
+        path,
+        media_type="image/webp",
+        headers={"cache-control": "public, max-age=31536000, immutable"},  # nome é único
+    )

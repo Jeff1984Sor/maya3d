@@ -5,6 +5,7 @@ import { Container } from "@/components/shop";
 import { NICHE_EMOJI } from "@/lib/format";
 import { StoreApiError, storeApi, type Product } from "@/lib/store";
 import { BuyBox } from "./buy-box";
+import { Gallery } from "./gallery";
 
 export const revalidate = 60;
 type Params = Promise<{ slug: string }>;
@@ -29,9 +30,7 @@ export default async function ProductPage({ params }: { params: Params }) {
 
   return (
     <Container className="grid gap-10 py-10 lg:grid-cols-2">
-      <div className="flex aspect-square items-center justify-center rounded-3xl border border-border bg-white text-[9rem]">
-        {NICHE_EMOJI[product.niche] ?? "✨"}
-      </div>
+      <Gallery images={product.images ?? []} fallback={NICHE_EMOJI[product.niche] ?? "✨"} title={product.title} />
       <div className="space-y-6">
         <div>
           <Link href={`/c/${product.niche}`} className="text-sm text-muted hover:text-ink">

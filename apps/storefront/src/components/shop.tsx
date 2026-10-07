@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { money, NICHE_EMOJI } from "@/lib/format";
-import type { Niche, ProductCard } from "@/lib/store";
+import type { Niche, PageLink, ProductCard } from "@/lib/store";
 
 /** Peças da vitrine. A loja é neutra para as peças coloridas brilharem (spec 5.1). */
 
@@ -9,21 +9,34 @@ export function Container({ children, className = "" }: { children: ReactNode; c
   return <div className={`mx-auto w-full max-w-6xl px-4 sm:px-6 ${className}`}>{children}</div>;
 }
 
-export function Announcement({ freeMin }: { freeMin: string | null }) {
-  if (!freeMin) return null;
-  return (
-    <div className="bg-ink px-4 py-2 text-center text-xs font-medium text-bg sm:text-sm">
-      Entrega grátis em Sorocaba nas compras a partir de {money(freeMin)}
-    </div>
-  );
+export function Announcement({ freeMin, text }: { freeMin: string | null; text?: string | null }) {
+  // texto do painel (Loja → página inicial) vence o aviso automático de frete
+  const message = text || (freeMin ? `Entrega grátis em Sorocaba nas compras a partir de ${money(freeMin)}` : null);
+  if (!message) return null;
+  return <div className="bg-ink px-4 py-2 text-center text-xs font-medium text-bg sm:text-sm">{message}</div>;
 }
 
-export function Header({ brand, niches, cartCount }: { brand: string; niches: Niche[]; cartCount: number }) {
+export function Header({
+  brand,
+  logo,
+  niches,
+  cartCount,
+}: {
+  brand: string;
+  logo?: string | null;
+  niches: Niche[];
+  cartCount: number;
+}) {
   return (
     <header className="border-b border-border bg-surface/90 backdrop-blur">
       <Container className="flex items-center gap-4 py-4">
         <Link href="/" className="font-heading text-xl font-bold tracking-tight">
-          {brand}
+          {logo ? (
+            // eslint-disable-next-line @next/next/no-img-element -- imagem já otimizada (WebP) pela API
+            <img src={logo} alt={brand} className="h-9 w-auto" />
+          ) : (
+            brand
+          )}
         </Link>
         <form action="/busca" className="hidden flex-1 sm:block">
           <input
@@ -49,9 +62,18 @@ export function Header({ brand, niches, cartCount }: { brand: string; niches: Ni
   );
 }
 
-export function Footer({ brand }: { brand: string }) {
+export function Footer({ brand, pages = [] }: { brand: string; pages?: PageLink[] }) {
   return (
     <footer className="mt-20 border-t border-border bg-surface">
+      {pages.length > 0 && (
+        <Container className="flex flex-wrap gap-x-6 gap-y-2 border-b border-border py-4 text-sm">
+          {pages.map((p) => (
+            <Link key={p.slug} href={`/pagina/${p.slug}`} className="text-muted hover:text-ink">
+              {p.title}
+            </Link>
+          ))}
+        </Container>
+      )}
       <Container className="grid gap-6 py-10 text-sm text-muted sm:grid-cols-3">
         <div>
           <p className="font-heading text-base font-semibold text-ink">{brand}</p>
@@ -76,8 +98,13 @@ export function ProductTile({ product }: { product: ProductCard }) {
       href={`/p/${product.slug}`}
       className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-surface transition hover:-translate-y-0.5 hover:shadow-lg"
     >
-      <div className="flex aspect-square items-center justify-center bg-white text-6xl">
-        <span className="transition group-hover:scale-110">{NICHE_EMOJI[product.niche] ?? "✨"}</span>
+      <div className="flex aspect-square items-center justify-center overflow-hidden bg-white text-6xl">
+        {product.image ? (
+          // eslint-disable-next-line @next/next/no-img-element -- miniatura WebP já otimizada pela API
+          <img src={product.image} alt={product.title} loading="lazy" className="h-full w-full object-cover transition group-hover:scale-105" />
+        ) : (
+          <span className="transition group-hover:scale-110">{NICHE_EMOJI[product.niche] ?? "✨"}</span>
+        )}
       </div>
       <div className="flex flex-1 flex-col gap-1 p-4">
         <p className="line-clamp-2 text-sm font-medium">{product.title}</p>
