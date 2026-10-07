@@ -76,6 +76,11 @@ services:
     environment:
       API_INTERNAL_URL: http://api:8000
       RELEASE: ${IMAGE_TAG}
+      # Só o necessário (nada de DATABASE_URL aqui). Vêm do .env da stack via --env-file.
+      ADMIN_API_TOKEN: ${ADMIN_API_TOKEN:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ADMIN_SESSION_SECRET: ${ADMIN_SESSION_SECRET:-}
+      ADMIN_COOKIE_SECURE: ${ADMIN_COOKIE_SECURE:-false}
     ports: ["${BIND_ADDR:-127.0.0.1}:${ADMIN_PORT:?}:3000"]
     depends_on:
       api: { condition: service_healthy }
