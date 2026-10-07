@@ -31,8 +31,7 @@ if [[ ! -f "${STACK_DIR}/.env" ]]; then
   # modo IP (ADR 0007): detecta o IP externo (metadata do GCP) e monta o CORS com as portas da stack
   # shellcheck disable=SC1090
   source "$(dirname "$0")/../infra/compose/env/${STACK}.env"
-  EXT_IP="$(curl -fsS -H 'Metadata-Flavor: Google' --max-time 3 \
-    http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip 2>/dev/null || true)"
+  EXT_IP="$(curl -4 -fsS --max-time 5 https://ifconfig.me 2>/dev/null || true)"
   if [[ -n "$EXT_IP" ]]; then
     sed -i -e "s#^PUBLIC_HOST=.*#PUBLIC_HOST=${EXT_IP}#" \
       -e "s#^CORS_ORIGINS=.*#CORS_ORIGINS=[\"http://${EXT_IP}:${STOREFRONT_PORT}\",\"http://${EXT_IP}:${ADMIN_PORT}\"]#" \
@@ -76,8 +75,8 @@ sudo systemctl enable --now "print3d-backup@${STACK}.timer"
 cat >&2 <<EOF
 
 Próximos passos manuais (uma vez):
-  1. Postgres do host precisa aceitar conexões da rede docker (listen_addresses e pg_hba.conf
-     para 172.16.0.0/12 com scram-sha-256). Ver docs/runbook-ops.md.
+  1. pg_hba.conf do host precisa de uma linha 'local' com scram-sha-256 para os roles print3d_*
+     (os containers usam o socket Unix). Ver docs/runbook-ops.md, seção 2.
   2. docker login ghcr.io (token read:packages) para o deploy puxar imagens.
   3. DNS dos 3 hosts -> IP do prod2; depois: ops/nginx-render.sh ${STACK} e certbot.
 EOF

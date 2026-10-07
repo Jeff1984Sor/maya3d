@@ -12,8 +12,8 @@ x-backend: &backend
     ENVIRONMENT: ${ENVIRONMENT:?}
     RELEASE: ${IMAGE_TAG}
     REDIS_URL: redis://redis:6379/0
-  # Postgres roda no host (prod2), fora do compose.
-  extra_hosts: ["host.docker.internal:host-gateway"]
+  # Postgres roda no host, fora do compose; acesso pelo socket Unix (sem abrir rede nem reiniciar o PG).
+  volumes: ["/var/run/postgresql:/var/run/postgresql"]
   restart: unless-stopped
   depends_on:
     redis: { condition: service_healthy }

@@ -14,9 +14,14 @@ O script cria diretórios, role + banco `print3d_staging`, extensões (`vector`,
 
 ## 2. Postgres do host acessível pelos containers
 - Instale o pgvector do seu Postgres: `sudo apt install postgresql-<versão>-pgvector`.
-- `postgresql.conf`: `listen_addresses = 'localhost,172.17.0.1'` (IP da bridge docker0).
-- `pg_hba.conf`: `host print3d_staging,print3d_prod print3d_staging,print3d_prod 172.16.0.0/12 scram-sha-256`
-- Firewall: porta 5432 **fechada** para a internet.
+Os containers falam com o Postgres pelo **socket Unix** (`/var/run/postgresql` montado no container): não precisa mudar `listen_addresses` nem reiniciar o Postgres, e nada de rede é exposto. Basta uma linha em `pg_hba.conf`, inserida **antes** das demais `local`, e `reload`:
+```bash
+HBA=/etc/postgresql/16/main/pg_hba.conf
+sudo cp "$HBA" "$HBA.bak-print3d"
+sudo sed -i '0,/^local[[:space:]]/s//local   print3d_staging,print3d_prod   print3d_staging,print3d_prod   scram-sha-256\n&/' "$HBA"
+sudo -u postgres psql -c "select pg_reload_conf()"      # reload: não derruba conexões dos outros serviços
+```
+A linha só vale para os roles/bancos `print3d_*`; os outros serviços continuam como estavam. Para desfazer: restaurar o `.bak-print3d` e dar reload.
 
 ## 3. Registro de imagens
 `docker login ghcr.io -u <usuario>` com token `read:packages` (fica em `~/.docker/config.json`).
