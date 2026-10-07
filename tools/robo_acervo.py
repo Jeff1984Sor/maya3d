@@ -98,6 +98,9 @@ def unique_title(title: str, used: set[str]) -> str:
 
 
 def main() -> None:
+    # Windows: console/arquivo em cp1252 não imprime ✓ e acentos; força UTF-8
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
