@@ -68,6 +68,10 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     environment: staging
+    # Um deploy por vez no servidor, mesmo vindo de runs diferentes (push na main + tag juntos).
+    concurrency:
+      group: deploy-staging
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/remote-deploy
@@ -89,6 +93,9 @@ jobs:
     runs-on: ubuntu-latest
     # Sem `environment: production`: o dono autorizou promoção direta por tag (sem aprovação manual).
     # A proteção continua sendo: CI verde + staging com smoke OK antes desta etapa.
+    concurrency:
+      group: deploy-prod
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/remote-deploy

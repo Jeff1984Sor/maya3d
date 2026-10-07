@@ -40,6 +40,8 @@ Se alguma porta estiver ocupada, troque em `infra/compose/env/<stack>.env` e com
 `SSH_HOST`, `SSH_USER`, `SSH_KEY` (chave privada dedicada ao deploy), `SSH_KNOWN_HOSTS` (`ssh-keyscan PROD2`).
 
 ## Rotina
+
+> O CD faz um deploy por vez em cada ambiente (filas `deploy-staging` e `deploy-prod`): push na main e tag ao mesmo tempo não colidem mais.
 | Quero... | Comando |
 |---|---|
 | ver o estado | `bash ops/diagnose.sh staging` |
