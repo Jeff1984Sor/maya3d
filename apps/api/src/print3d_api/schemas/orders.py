@@ -157,6 +157,7 @@ class OpsConfigIn(BaseModel):
     owner_whatsapp: str | None = Field(default=None, max_length=32)
     pix_key: str | None = Field(default=None, max_length=140)
     pix_name: str | None = Field(default=None, max_length=100)
+    origin_cep: str | None = Field(default=None, max_length=9)
 
 
 class OpsConfigOut(OpsConfigIn):

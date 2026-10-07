@@ -3,7 +3,7 @@ name = "print3d-channels"
 version = "0.1.0"
 description = "Providers de canais de venda: mercadolivre, shopee, site"
 requires-python = ">=3.12"
-dependencies = ["print3d-core", "pydantic>=2.10"]
+dependencies = ["print3d-core", "pydantic>=2.10", "httpx>=0.28"]
 
 [tool.uv.sources]
 print3d-core = { workspace = true }

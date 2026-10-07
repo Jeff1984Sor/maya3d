@@ -249,3 +249,59 @@ def test_checkout_exige_termos(client: TestClient) -> None:
         },
     )
     assert res.status_code == 422
+
+
+class FakeQuoter:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, Any]] = []
+
+    async def quote(self, origin_cep: str, dest_cep: str, parcels: list[Any]) -> list[Any]:
+        from print3d_channels.shipping import ShippingRate
+
+        self.calls.append({"origin": origin_cep, "dest": dest_cep, "parcels": parcels})
+        return [
+            ShippingRate("1", "Correios", "PAC", D("23.50"), 8),
+            ShippingRate("2", "Correios", "SEDEX", D("39.90"), 3),
+        ]
+
+
+def test_frete_automatico_fora_de_sorocaba(client: TestClient) -> None:
+    cat = _catalog(client)
+    engine = create_engine(os.environ["DATABASE_URL"])
+    with engine.begin() as conn:
+        conn.execute(text("UPDATE ops_config SET origin_cep = '18000000'"))
+    engine.dispose()
+    quoter = FakeQuoter()
+    client.app.state.shipping_quoter = quoter  # type: ignore[attr-defined]
+    vid = client.get(f"/v1/store/products/{cat['slug']}").json()["variants"][0]["id"]
+    token = client.post("/v1/store/cart").json()["token"]
+    client.put(f"/v1/store/cart/{token}", json={"items": [{"variant_id": vid, "quantity": 3}]})
+
+    quote = client.post(
+        "/v1/store/shipping", json={"cep": "01310-100", "subtotal": "90", "cart_token": token}
+    ).json()
+    assert [o["id"] for o in quote["options"]] == ["me-1", "me-2"]
+    assert quote["options"][0]["label"] == "Correios PAC"
+    parcel = quoter.calls[0]["parcels"][0]
+    assert parcel.quantity == 3
+    assert (parcel.width_cm, parcel.length_cm) == (16, 16)  # caixa padrão sem embalagem
+
+    base = {
+        "cart_token": token,
+        "name": "Bia",
+        "email": "bia@example.com",
+        "whatsapp": "+5511999990000",
+        "accept_terms": True,
+        "cep": "01310-100",
+        "street": "Av. Paulista",
+        "number": "1000",
+    }
+    forged = client.post("/v1/store/checkout", json={**base, "shipping_option": "me-999"})
+    assert forged.status_code == 422  # serviço que não veio na cotação
+
+    out = client.post("/v1/store/checkout", json={**base, "shipping_option": "me-2"})
+    assert out.status_code == 201, out.text
+    order = client.get("/v1/admin/orders", headers=H).json()[0]
+    detail = client.get(f"/v1/admin/orders/{order['id']}", headers=H).json()
+    assert D(detail["shipping"]) == D("39.90")  # preço da recotação no servidor
+    assert detail["shipping_address"]["option_label"] == "Correios SEDEX"

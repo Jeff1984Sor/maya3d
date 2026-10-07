@@ -52,7 +52,7 @@ export type CartLine = {
   line_total: string | null;
 };
 export type Cart = { token: string; items: CartLine[]; subtotal: string; purchasable: boolean; problems: string[] };
-export type ShippingOption = { id: "local" | "retirada" | "envio"; label: string; price: string | null; detail: string };
+export type ShippingOption = { id: string; label: string; price: string | null; detail: string }; // me-<id> = Melhor Envio
 export type ShippingQuote = {
   cep: string;
   city: string;

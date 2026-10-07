@@ -8,6 +8,7 @@ dependencies = [
     "print3d-mesh",
     "print3d-ai",
     "print3d-notify",
+    "print3d-channels",
     "fastapi>=0.115",
     "python-multipart>=0.0.20",
     "uvicorn[standard]>=0.34",
@@ -28,6 +29,7 @@ print3d-core = { workspace = true }
 print3d-mesh = { workspace = true }
 print3d-ai = { workspace = true }
 print3d-notify = { workspace = true }
+print3d-channels = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]

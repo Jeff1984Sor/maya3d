@@ -18,6 +18,7 @@ atrás de um Provider, com testes de contrato e estado "não configurado" visív
 | 8 | IA: provedores Claude/OpenAI, tela IA, "✨ Enriquecer" ✅ v0.5 · Redator por canal, busca por significado, assistente da loja ✅ v0.8 · Guardião visual | parcial |
 | 8b | Biblioteca de modelos (acervos enviados pelo painel → organizados, medidos → produto) · paramétricos cruz/placa/lembrancinha/suporte · Integrações no painel | ✅ v0.9 |
 | 8c | CMS: fotos de produto, marca (nome/cores/logo), página inicial (aviso, destaque, vitrines) e páginas institucionais no painel | ✅ v0.10 |
+| 8d | Frete automático (Melhor Envio): Correios/transportadoras no carrinho e no checkout, recotado no servidor; token em Integrações, CEP de origem em Operação | ✅ v0.11 |
 | 9 | Mercado Livre e Shopee (OAuth, publicação, pedidos, perguntas) | |
 | 10 | Fatiador e renders em containers; CMS; conteúdo/MayaPost; app Expo; Analista | |
 

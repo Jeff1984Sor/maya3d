@@ -31,8 +31,18 @@ from print3d_api.schemas.store import (
     StoreProduct,
     StoreProductCard,
 )
-from print3d_api.services import ai, assistant, content, guardian, media, search, store
+from print3d_api.services import (
+    ai,
+    assistant,
+    content,
+    guardian,
+    integrations,
+    media,
+    search,
+    store,
+)
 from print3d_api.services.cep import CepError, CepProvider, ViaCepProvider
+from print3d_channels.shipping import ShippingQuoter
 from print3d_core.storage import LocalStorage, StorageError
 from print3d_mesh.parametric import MODELS
 
@@ -55,6 +65,15 @@ def get_cep_provider(request: Request) -> CepProvider:
 
 
 Cep = Annotated[CepProvider, Depends(get_cep_provider)]
+
+
+async def get_shipping_quoter(request: Request, session: Session) -> ShippingQuoter | None:
+    """Melhor Envio configurado em Integrações (trocável nos testes por app.state)."""
+    override = getattr(request.app.state, "shipping_quoter", None)
+    return override if override is not None else await integrations.shipping_quoter(session)
+
+
+Quoter = Annotated[ShippingQuoter | None, Depends(get_shipping_quoter)]
 
 
 def _http(exc: store.StoreError) -> HTTPException:
@@ -125,17 +144,26 @@ async def put_cart(token: str, payload: CartIn, session: Session) -> CartOut:
 
 
 @router.post("/shipping", response_model=ShippingQuote)
-async def shipping(payload: ShippingIn, session: Session, cep: Cep) -> ShippingQuote:
+async def shipping(
+    payload: ShippingIn, session: Session, cep: Cep, quoter: Quoter
+) -> ShippingQuote:
     try:
-        return await store.quote_shipping(session, cep, payload.cep, payload.subtotal)
+        return await store.quote_shipping(
+            session,
+            cep,
+            payload.cep,
+            payload.subtotal,
+            cart_token=payload.cart_token,
+            quoter=quoter,
+        )
     except CepError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
 
 
 @router.post("/checkout", response_model=CheckoutOut, status_code=201)
-async def checkout(payload: CheckoutIn, session: Session, cep: Cep) -> CheckoutOut:
+async def checkout(payload: CheckoutIn, session: Session, cep: Cep, quoter: Quoter) -> CheckoutOut:
     try:
-        return await store.checkout(session, cep, payload)
+        return await store.checkout(session, cep, payload, quoter)
     except store.StoreError as exc:
         await session.rollback()
         raise _http(exc) from exc

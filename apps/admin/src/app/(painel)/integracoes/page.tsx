@@ -21,6 +21,12 @@ const GROUPS = [
     help: "Dados do app no Meta for Developers → WhatsApp → Configuração da API. Envio funciona já; respostas e botões precisam do domínio com HTTPS (webhook /v1/webhooks/whatsapp).",
     next: { href: "/mensagens", label: "caixa de saída →" },
   },
+  {
+    id: "frete",
+    title: "Frete (Melhor Envio)",
+    help: "Cotação automática de Correios e transportadoras para fora de Sorocaba. Gere o token no painel do Melhor Envio e preencha também o CEP de origem em Operação.",
+    next: { href: "/operacao", label: "CEP de origem →" },
+  },
 ] as const;
 
 function FieldInput({ f }: { f: IntegrationField }) {

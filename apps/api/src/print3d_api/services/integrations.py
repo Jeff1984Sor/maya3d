@@ -5,6 +5,7 @@ O dono cola as chaves na tela Integrações; ficam no banco cifradas com Fernet 
 """
 
 import logging
+import os
 import secrets
 from dataclasses import dataclass
 from functools import lru_cache
@@ -18,6 +19,7 @@ from print3d_ai import AISettings
 from print3d_api.config import get_settings
 from print3d_api.models import IntegrationSetting
 from print3d_api.services import audit
+from print3d_channels.shipping import MelhorEnvio, ShippingQuoter
 from print3d_core.security import TokenVault, TokenVaultError
 from print3d_notify.meta import WhatsAppSettings
 
@@ -68,6 +70,26 @@ FIELDS: tuple[Field, ...] = (
         hint="nome do template com 1 variável",
     ),
     Field("WHATSAPP_TEMPLATE_LANG", "whatsapp", "Idioma do template", hint="pt_BR"),
+    Field(
+        "MELHORENVIO_TOKEN",
+        "frete",
+        "Token do Melhor Envio",
+        secret=True,
+        hint="painel do Melhor Envio → Integrações → gerar token",
+    ),
+    Field("MELHORENVIO_ENV", "frete", "Ambiente", choices=("producao", "sandbox")),
+    Field(
+        "MELHORENVIO_CONTACT_EMAIL",
+        "frete",
+        "E-mail de contato técnico",
+        hint="o Melhor Envio exige um e-mail de contato nas chamadas",
+    ),
+    Field(
+        "MELHORENVIO_SERVICES",
+        "frete",
+        "Serviços (opcional)",
+        hint="IDs separados por vírgula; vazio = todos",
+    ),
 )
 BY_KEY = {f.key: f for f in FIELDS}
 GENERATABLE = {"WHATSAPP_VERIFY_TOKEN"}
@@ -186,6 +208,7 @@ async def view(session: AsyncSession) -> list[dict[str, Any]]:
     db_values = await load(session)
     stored = {r.key for r in (await session.scalars(select(IntegrationSetting))).all()}
     env = {
+        **{f.key: os.environ.get(f.key) for f in FIELDS},
         **{f"AI_{k.upper()}": v for k, v in AISettings().model_dump().items()},
         **{f"WHATSAPP_{k.upper()}": v for k, v in WhatsAppSettings().model_dump().items()},
     }
@@ -220,3 +243,21 @@ async def view(session: AsyncSession) -> list[dict[str, Any]]:
             }
         )
     return out
+
+
+async def shipping_quoter(session: AsyncSession) -> ShippingQuoter | None:
+    """Melhor Envio configurado (painel > .env) ou None (a loja mostra frete a combinar)."""
+    values = await load(session)
+
+    def get(key: str) -> str | None:
+        return values.get(key) or os.environ.get(key) or None
+
+    token, email = get("MELHORENVIO_TOKEN"), get("MELHORENVIO_CONTACT_EMAIL")
+    if not token or not email:
+        return None
+    return MelhorEnvio(
+        token,
+        env=get("MELHORENVIO_ENV") or "producao",
+        contact_email=email,
+        services=get("MELHORENVIO_SERVICES"),
+    )

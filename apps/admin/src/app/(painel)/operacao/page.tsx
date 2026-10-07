@@ -19,6 +19,7 @@ type Ops = {
   owner_whatsapp: string | null;
   pix_key: string | null;
   pix_name: string | null;
+  origin_cep: string | null;
 };
 
 const nums = (v: FormDataEntryValue | null) =>
@@ -42,6 +43,7 @@ async function save(form: FormData): Promise<void> {
       owner_whatsapp: String(form.get("owner_whatsapp") ?? "").trim() || null,
       pix_key: String(form.get("pix_key") ?? "").trim() || null,
       pix_name: String(form.get("pix_name") ?? "").trim() || null,
+      origin_cep: String(form.get("origin_cep") ?? "").replace(/\D/g, "") || null,
     });
   } catch (error) {
     redirect(`/operacao?erro=${encodeURIComponent(error instanceof AdminApiError ? error.message : "Falha ao salvar.")}`);
@@ -75,6 +77,9 @@ export default async function OperacaoPage({ searchParams }: { searchParams: Pro
           </Label>
           <Label label="Nome do recebedor do Pix">
             <input name="pix_name" defaultValue={ops.pix_name ?? ""} className={inputClass} />
+          </Label>
+          <Label label="CEP de onde saem os envios" hint="usado na cotação automática de frete (Melhor Envio)">
+            <input name="origin_cep" inputMode="numeric" maxLength={9} defaultValue={ops.origin_cep ?? ""} className={inputClass} />
           </Label>
           <Label label="Frete grátis local a partir de (R$)">
             <input name="local_free_shipping_min" inputMode="decimal" defaultValue={ops.local_free_shipping_min} className={inputClass} />

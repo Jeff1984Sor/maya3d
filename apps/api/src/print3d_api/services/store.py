@@ -4,6 +4,7 @@ Vendável = ativo + aprovado pelo Guardião + impressora capaz do material míni
 calculável (gramas e tempo conhecidos e tarifa do canal do site cadastrada).
 """
 
+import logging
 import secrets
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -56,11 +57,15 @@ from print3d_api.schemas.store import (
 from print3d_api.services import guardian, media, orders, search
 from print3d_api.services.cep import CepProvider
 from print3d_api.services.pricing import margin_for, select_bands
+from print3d_channels.shipping import Parcel, ShippingError, ShippingQuoter, parcel_from_mm
 from print3d_core import CostInputs, FeeBand, PricingError, ProfitRule, compute_cost, quote_channel
 from print3d_core.guardian import material_available
 from print3d_core.orders import CUSTOMER_LABELS, OrderStatus
 
 PIX_CHANNEL, CARD_CHANNEL = "site_pix", "site_card"
+
+
+log = logging.getLogger("print3d.store")
 
 
 class StoreError(Exception):
@@ -457,8 +462,88 @@ async def set_cart(session: AsyncSession, token: str, data: CartIn) -> CartOut:
 
 
 # --- Frete ---------------------------------------------------------------------------------
+DEFAULT_BOX_MM = (160.0, 110.0, 60.0)  # sem embalagem cadastrada: caixa pequena padrão
+DEFAULT_WEIGHT_G = 300.0
+
+
+async def _parcels(session: AsyncSession, cart_token: str) -> list[Parcel]:
+    """Uma caixa por item do carrinho, com medidas da embalagem e peso embalado da variante."""
+    cart = await session.get(Cart, cart_token)
+    if cart is None or not cart.items:
+        return []
+    ids = [int(i["variant_id"]) for i in cart.items]
+    variants = {
+        v.id: v for v in (await session.scalars(select(Variant).where(Variant.id.in_(ids))))
+    }
+    boxes = {b.id: b for b in (await session.scalars(select(PackagingBox))).all()}
+    view = await cart_view(session, cart_token)
+    prices = {line.variant_id: line.unit_price or Decimal(0) for line in view.items}
+    parcels = []
+    for item in cart.items:
+        variant = variants.get(int(item["variant_id"]))
+        if variant is None:
+            continue
+        box = boxes.get(variant.packaging_id) if variant.packaging_id else None
+        dims = (
+            (box.inner_x_mm + 4.0, box.inner_y_mm + 4.0, box.inner_z_mm + 4.0)
+            if box
+            else DEFAULT_BOX_MM
+        )
+        grams = sum((variant.grams_by_material or {}).values())
+        weight = variant.packed_weight_g or (
+            (box.weight_g + grams) if box and grams else DEFAULT_WEIGHT_G
+        )
+        parcels.append(
+            parcel_from_mm(
+                f"v{variant.id}",
+                dims,
+                float(weight),
+                prices.get(variant.id, Decimal(0)),
+                int(item.get("quantity", 1)),
+            )
+        )
+    return parcels
+
+
+async def _carrier_options(
+    session: AsyncSession,
+    quoter: ShippingQuoter | None,
+    origin_cep: str | None,
+    dest_cep: str,
+    cart_token: str | None,
+) -> tuple[list[ShippingOption], str | None]:
+    """Opções do Melhor Envio. Devolve (opções, motivo de não ter cotação automática)."""
+    if quoter is None or not origin_cep:
+        return [], "frete automático ainda não configurado"
+    if not cart_token:
+        return [], None
+    parcels = await _parcels(session, cart_token)
+    if not parcels:
+        return [], None
+    try:
+        rates = await quoter.quote(origin_cep, dest_cep, parcels)
+    except ShippingError as exc:
+        log.warning("cotação de frete falhou", extra={"erro": str(exc)})
+        return [], "cálculo automático indisponível agora"
+    return [
+        ShippingOption(
+            id=f"me-{r.service_id}",
+            label=f"{r.carrier} {r.service}".strip(),
+            price=r.price,
+            detail=f"até {r.days} dias úteis após a postagem" if r.days else "",
+        )
+        for r in rates[:6]
+    ], None
+
+
 async def quote_shipping(
-    session: AsyncSession, cep_provider: CepProvider, cep: str, subtotal: Decimal
+    session: AsyncSession,
+    cep_provider: CepProvider,
+    cep: str,
+    subtotal: Decimal,
+    *,
+    cart_token: str | None = None,
+    quoter: ShippingQuoter | None = None,
 ) -> ShippingQuote:
     ops = await session.get(OpsConfig, OPS_CONFIG_ID)
     address = await cep_provider.lookup(cep)
@@ -481,14 +566,21 @@ async def quote_shipping(
             options.append(
                 ShippingOption(id="retirada", label="Retirar no local", price=Decimal(0))
             )
-    options.append(
-        ShippingOption(
-            id="envio",
-            label="Envio pelos Correios/transportadora",
-            price=None,
-            detail="valor informado pelo WhatsApp após o pedido (cálculo automático em breve)",
+    if not local:  # local já tem entrega própria; fora daqui, Correios/transportadoras
+        carriers, reason = await _carrier_options(
+            session, quoter, ops.origin_cep if ops else None, address.cep, cart_token
         )
-    )
+        options.extend(carriers)
+        if not carriers:
+            detail = "valor informado pelo WhatsApp após o pedido"
+            options.append(
+                ShippingOption(
+                    id="envio",
+                    label="Envio pelos Correios/transportadora",
+                    price=None,
+                    detail=f"{detail} ({reason})" if reason else detail,
+                )
+            )
     return ShippingQuote(
         cep=address.cep,
         city=address.city,
@@ -502,14 +594,20 @@ async def quote_shipping(
 
 # --- Checkout ------------------------------------------------------------------------------
 async def checkout(
-    session: AsyncSession, cep_provider: CepProvider, data: CheckoutIn
+    session: AsyncSession,
+    cep_provider: CepProvider,
+    data: CheckoutIn,
+    quoter: ShippingQuoter | None = None,
 ) -> CheckoutOut:
     if not data.accept_terms:
         raise StoreError("é preciso aceitar os termos e a política de privacidade")
     view = await cart_view(session, data.cart_token)
     if not view.purchasable:
         raise StoreError("; ".join(view.problems) or "carrinho vazio")
-    quote = await quote_shipping(session, cep_provider, data.cep, view.subtotal)
+    # o preço do frete vem desta recotação no servidor, nunca do navegador
+    quote = await quote_shipping(
+        session, cep_provider, data.cep, view.subtotal, cart_token=data.cart_token, quoter=quoter
+    )
     option = next((o for o in quote.options if o.id == data.shipping_option), None)
     if option is None:
         raise StoreError("opção de entrega indisponível para este CEP")
@@ -549,6 +647,7 @@ async def checkout(
                 "city": quote.city,
                 "uf": quote.uf,
                 "option": option.id,
+                "option_label": option.label,
             },
             local_delivery=option.id == "local",
             notes=data.notes,

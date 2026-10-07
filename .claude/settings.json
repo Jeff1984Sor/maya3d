@@ -22,7 +22,14 @@
       "Bash(python -m uv run python -m mypy apps/api/src)",
       "Bash(python -m uv run python -m pytest apps/api -q -p no:cacheprovider)",
       "Bash(npx -y pnpm@9.15.0 -r --filter ./apps/storefront lint)",
-      "Bash(npx -y pnpm@9.15.0 -r --filter ./apps/storefront typecheck)"
+      "Bash(npx -y pnpm@9.15.0 -r --filter ./apps/storefront typecheck)",
+      "Bash(python \"C:/Users/JEFFER~1/AppData/Local/Temp/claude/c--Users-JeffersonFernandes-Projetos-Maya3D/b5bce2bf-eb90-4fb1-b765-4b8d570bcaaf/scratchpad/watch_release.py\" 1a644c4 v0.10.0)",
+      "Bash(cd /c/Users/JeffersonFernandes/Projetos/acervo-catolico-3d && ls imagens-de-santos 2>/dev/null | head -3; rmdir imagens-de-santos 2>/dev/null; mv _retentativa/imagens-de-santos . && rm -f _retentativa/manifesto.json && rmdir _retentativa && ls imagens-de-santos | head -5 && du -sh .)",
+      "Read(//c/Users/JeffersonFernandes/Projetos/acervo-catolico-3d/**)",
+      "Bash(cp -rf _retentativa/imagens-de-santos/. imagens-de-santos/)",
+      "Bash(rm -rf _retentativa)",
+      "Bash(curl -s -m 8 http://2.25.130.240:38000/health/live)",
+      "WebSearch"
     ]
   }
 }

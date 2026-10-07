@@ -43,6 +43,7 @@ class OpsConfig(TimestampMixin, Base):
     # Pix manual (até o gateway): chave e nome do recebedor exibidos no checkout
     pix_key: Mapped[str | None] = mapped_column(String(140))
     pix_name: Mapped[str | None] = mapped_column(String(100))
+    origin_cep: Mapped[str | None] = mapped_column(String(9))  # de onde saem os envios
 
 
 class Customer(IdMixin, TimestampMixin, Base):

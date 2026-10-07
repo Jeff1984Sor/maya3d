@@ -3,7 +3,7 @@ clientes."""
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 
 from pydantic import BaseModel, EmailStr, Field, StringConstraints
 
@@ -90,10 +90,13 @@ class CartOut(BaseModel):
     problems: list[str] = []
 
 
+SHIPPING_OPTION = r"^(local|retirada|envio|me-\d{1,6})$"
+
+
 class ShippingOption(BaseModel):
-    id: Literal["local", "retirada", "envio"]
+    id: Annotated[str, StringConstraints(pattern=SHIPPING_OPTION)]  # me-<serviço> = Melhor Envio
     label: str
-    price: Decimal | None  # None = valor informado depois (Melhor Envio ainda não conectado)
+    price: Decimal | None  # None = valor combinado depois (frete automático indisponível)
     detail: str = ""
 
 
@@ -110,6 +113,7 @@ class ShippingQuote(BaseModel):
 class ShippingIn(BaseModel):
     cep: str
     subtotal: Decimal = Field(ge=0)
+    cart_token: str | None = None  # com o carrinho, a cotação usa medidas e peso reais
 
 
 class CheckoutIn(BaseModel):
@@ -125,7 +129,7 @@ class CheckoutIn(BaseModel):
     number: Annotated[str, StringConstraints(min_length=1, max_length=20)]
     complement: str | None = Field(default=None, max_length=80)
     district: str = Field(default="", max_length=80)
-    shipping_option: Literal["local", "retirada", "envio"]
+    shipping_option: Annotated[str, StringConstraints(pattern=SHIPPING_OPTION)]
     notes: str | None = Field(default=None, max_length=500)
 
 

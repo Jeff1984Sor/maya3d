@@ -1314,6 +1314,7 @@ dependencies = [
     { name = "httpx" },
     { name = "pgvector" },
     { name = "print3d-ai" },
+    { name = "print3d-channels" },
     { name = "print3d-core" },
     { name = "print3d-mesh" },
     { name = "print3d-notify" },
@@ -1335,6 +1336,7 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.28" },
     { name = "pgvector", specifier = ">=0.3" },
     { name = "print3d-ai", editable = "packages/ai" },
+    { name = "print3d-channels", editable = "packages/channels" },
     { name = "print3d-core", editable = "packages/core" },
     { name = "print3d-mesh", editable = "packages/mesh" },
     { name = "print3d-notify", editable = "packages/notify" },
@@ -1352,12 +1354,14 @@ name = "print3d-channels"
 version = "0.1.0"
 source = { editable = "packages/channels" }
 dependencies = [
+    { name = "httpx" },
     { name = "print3d-core" },
     { name = "pydantic" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "httpx", specifier = ">=0.28" },
     { name = "print3d-core", editable = "packages/core" },
     { name = "pydantic", specifier = ">=2.10" },
 ]

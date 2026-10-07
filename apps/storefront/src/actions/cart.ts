@@ -89,7 +89,8 @@ export async function quoteShipping(_prev: ShippingState, form: FormData): Promi
   try {
     const quote = await storeApi<ShippingQuote>("/shipping", {
       method: "POST",
-      body: JSON.stringify({ cep: String(form.get("cep") ?? ""), subtotal: cart?.subtotal ?? "0" }),
+      // com o carrinho, a API cota Correios/transportadoras com medidas e peso reais
+      body: JSON.stringify({ cep: String(form.get("cep") ?? ""), subtotal: cart?.subtotal ?? "0", cart_token: cart?.token ?? null }),
     });
     (await cookies()).set("p3d_cep", quote.cep, { httpOnly: true, sameSite: "lax", maxAge: 60 * 60 * 24 * 90, path: "/" });
     return { quote };
