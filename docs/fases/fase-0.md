@@ -15,7 +15,7 @@
 - CI/CD: `ci.yml` + `cd.yml`, deploy por SSH com rollback automático, guarda de marca.
 
 ## Pendências herdadas
-- [ ] Trocar a senha do banco de staging (vazou em log durante o bootstrap; script já corrigido).
+- [x] Trocar a senha do banco de staging (vazou em log durante o bootstrap; script corrigido; trocada em 2026-10-07).
 - [ ] Commitar `pnpm-lock.yaml` (artefato `pnpm-lock` do CI).
 - [ ] Bootstrap da stack de produção (`ops/bootstrap-server.sh prod`) e primeira promoção.
 - [ ] Domínio + HTTPS (obrigatório antes de login, checkout e Fase 3).
