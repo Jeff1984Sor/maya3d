@@ -17,6 +17,6 @@
 ## Pendências herdadas
 - [x] Trocar a senha do banco de staging (vazou em log durante o bootstrap; script corrigido; trocada em 2026-10-07).
 - [ ] Commitar `pnpm-lock.yaml` (artefato `pnpm-lock` do CI).
-- [ ] Bootstrap da stack de produção (`ops/bootstrap-server.sh prod`) e primeira promoção.
+- [x] Bootstrap da stack de produção e primeira promoção: **v0.1.0 em produção** (2026-10-07), deploy feito no servidor com `ops/deploy.sh prod v0.1.0`.
 - [ ] Domínio + HTTPS (obrigatório antes de login, checkout e Fase 3).
 - [ ] Restringir portas de staging/admin ao seu IP (regras `DOCKER-USER`; o Docker ignora o ufw).

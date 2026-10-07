@@ -45,6 +45,7 @@ Especificação completa: [docs/especificacao/prompt-impressao3d.md](docs/especi
 - ADR 0003 (fatiador) e 0004 (gateway de cartão): propostos, a validar — ver `docs/adr/`.
 - Servidor: `srv1703721` (IP 2.25.130.240), usuário `deploy`, raiz `/srv/print3d`. Outros serviços rodam lá: usar só as portas 38000–38002 (staging) e 39000–39002 (prod). Postgres 16 do host via socket Unix.
 - `uv.lock` commitado; `pnpm-lock.yaml` ainda não (baixar o artefato `pnpm-lock` do CI e commitar).
-- Produção ainda sem bootstrap (`ops/bootstrap-server.sh prod`). Domínio + HTTPS antes da Fase 3.
+- Produção no ar: v0.1.0 (loja :39001, admin :39002, API :39000). Domínio + HTTPS antes da Fase 3.
+- O dono não quer usar a interface do GitHub: aprovação de produção no site não é viável; para promover, rodar `ops/deploy.sh prod <tag>` no servidor (ou retirar o gate do `cd.yml`, se ele autorizar).
 - Lint/testes locais são permitidos só como análise estática (`uv run python -m pytest`, ruff, mypy, shellcheck); nada de servidor/app no Windows.
 - Dúvidas bloqueantes para o dono: [docs/duvidas-bloqueantes.md](docs/duvidas-bloqueantes.md).
