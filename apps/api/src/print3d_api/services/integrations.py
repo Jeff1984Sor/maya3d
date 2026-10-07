@@ -89,6 +89,21 @@ FIELDS: tuple[Field, ...] = (
         hint="developers.mercadolivre.com.br → sua aplicação",
     ),
     Field("ML_CLIENT_SECRET", "mercadolivre", "Chave secreta", secret=True),
+    Field(
+        "MP_ACCESS_TOKEN",
+        "mercadopago",
+        "Access Token",
+        secret=True,
+        hint="Mercado Pago → Suas integrações → credenciais (teste começa com TEST-)",
+    ),
+    Field("MP_PUBLIC_KEY", "mercadopago", "Public Key", hint="para o cartão (depois do domínio)"),
+    Field(
+        "MP_WEBHOOK_SECRET",
+        "mercadopago",
+        "Assinatura secreta dos avisos",
+        secret=True,
+        hint="Webhooks → assinatura secreta (com domínio; sem ela o sistema consulta a cada 2 min)",
+    ),
     Field("SHOPEE_PARTNER_ID", "shopee", "Partner ID", hint="open.shopee.com → seu app"),
     Field("SHOPEE_PARTNER_KEY", "shopee", "Partner Key", secret=True),
     Field(

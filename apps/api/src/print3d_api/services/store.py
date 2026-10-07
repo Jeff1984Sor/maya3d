@@ -27,6 +27,7 @@ from print3d_api.models import (
     OrderEvent,
     OrderItem,
     PackagingBox,
+    Payment,
     Printer,
     Product,
     ProductImage,
@@ -54,9 +55,10 @@ from print3d_api.schemas.store import (
     StoreVariant,
     TimelineEntry,
 )
-from print3d_api.services import guardian, media, orders, search
+from print3d_api.services import guardian, media, orders, payments, search
 from print3d_api.services.cep import CepProvider
 from print3d_api.services.pricing import margin_for, select_bands
+from print3d_channels.mercadopago import MercadoPagoError
 from print3d_channels.shipping import Parcel, ShippingError, ShippingQuoter, parcel_from_mm
 from print3d_core import CostInputs, FeeBand, PricingError, ProfitRule, compute_cost, quote_channel
 from print3d_core.guardian import material_available
@@ -659,15 +661,38 @@ async def checkout(
     if cart is not None:
         cart.items = []
     await session.commit()
+    # Pix automático (Mercado Pago). Se o gateway falhar, o pedido segue com o Pix manual.
+    payment = None
+    if option.price is not None:  # frete "a combinar": total ainda vai mudar, cobra depois
+        try:
+            payment = await payments.charge_pix(session, order, customer)
+            await session.commit()
+        except MercadoPagoError as exc:
+            await session.rollback()
+            log.warning("Pix automático indisponível", extra={"pedido": order.id, "erro": str(exc)})
     ops = await session.get(OpsConfig, OPS_CONFIG_ID)
     return CheckoutOut(
         order_number=order.number,
         public_token=order.public_token or "",
         total=order.total,
         shipping_pending=option.price is None,
-        pix=PixInstructions(
-            key=ops.pix_key if ops else None, name=ops.pix_name if ops else None, amount=order.total
-        ),
+        pix=_pix(ops, order, payment),
+    )
+
+
+def _pix(ops: OpsConfig | None, order: Order, payment: Payment | None) -> PixInstructions:
+    if payment is not None:
+        return PixInstructions(
+            key=None,
+            name=None,
+            amount=order.total,
+            automatic=True,
+            qr_code=payment.qr_code,
+            qr_code_base64=payment.qr_code_base64,
+            expires_at=payment.expires_at,
+        )
+    return PixInstructions(
+        key=ops.pix_key if ops else None, name=ops.pix_name if ops else None, amount=order.total
     )
 
 
@@ -705,9 +730,7 @@ async def public_order(session: AsyncSession, token: str) -> PublicOrder:
             for e in events
         ],
         progress=f"{sum(i.produced for i in items)} de {total_qty} prontas" if total_qty else "",
-        pix=PixInstructions(
-            key=ops.pix_key if ops else None, name=ops.pix_name if ops else None, amount=order.total
-        )
+        pix=_pix(ops, order, await payments.current_pix(session, order.id))
         if status is OrderStatus.AGUARDANDO_PAGAMENTO
         else None,
     )

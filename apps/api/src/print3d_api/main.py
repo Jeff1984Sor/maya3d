@@ -19,7 +19,7 @@ from print3d_api.health import HealthChecker
 from print3d_api.logging import configure_logging
 from print3d_api.middleware import RequestContextMiddleware
 from print3d_api.routes import admin, brand, channels, health, store, webhooks
-from print3d_api.services import search
+from print3d_api.services import payments, search
 from print3d_api.services.brand import BrandService
 from print3d_notify.meta import WhatsAppSettings
 
@@ -53,11 +53,14 @@ def create_app(
                     app.state.session_factory, search.default_embedder_factory, interval=300
                 )
             )
+        poller: asyncio.Task[None] | None = None
+        if settings.environment != "ci":  # Pix automático: confirma sem depender de domínio
+            poller = asyncio.create_task(payments.run_poller(app.state.session_factory))
         log.info("api iniciada", extra={"release": settings.release, "env": settings.environment})
         try:
             yield
         finally:
-            for task in (dispatcher, indexer):
+            for task in (dispatcher, indexer, poller):
                 if task is not None:
                     task.cancel()
                     with contextlib.suppress(asyncio.CancelledError):

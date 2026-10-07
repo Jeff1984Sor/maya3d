@@ -20,6 +20,7 @@ from print3d_api.models.orders import (
     PrintJob,
     ProducedFingerprint,
 )
+from print3d_api.models.payments import Payment
 from print3d_api.models.pricing import ChannelFeeBand, CostConfig
 from print3d_api.models.production import Material, PackagingBox, Printer
 
@@ -50,6 +51,7 @@ __all__ = [
     "OrderEvent",
     "OrderItem",
     "PackagingBox",
+    "Payment",
     "PrintJob",
     "Printer",
     "ProducedFingerprint",

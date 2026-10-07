@@ -1,6 +1,7 @@
 import type { PublicOrder } from "@print3d/shared";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
+import { Image } from "expo-image";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { View } from "react-native";
@@ -50,7 +51,25 @@ export default function OrderScreen() {
           <Text variant="heading">Pague com Pix</Text>
           <Text variant="muted">Valor: {money(order.pix.amount)}</Text>
           {order.pix.name && <Text variant="small">Recebedor: {order.pix.name}</Text>}
-          {order.pix.key ? (
+          {order.pix.automatic && order.pix.qr_code ? (
+            <>
+              {order.pix.qr_code_base64 ? (
+                <Image
+                  source={{ uri: `data:image/png;base64,${order.pix.qr_code_base64}` }}
+                  style={{ width: 200, height: 200, alignSelf: "center", backgroundColor: "#fff" }}
+                />
+              ) : null}
+              <Button
+                title={copied ? "Código copiado ✓" : "Copiar Pix copia e cola"}
+                onPress={async () => {
+                  await Clipboard.setStringAsync(order.pix?.qr_code ?? "");
+                  void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  setCopied(true);
+                }}
+              />
+              <Text variant="small">A confirmação é automática: puxe a tela para baixo para atualizar.</Text>
+            </>
+          ) : order.pix.key ? (
             <>
               <Text selectable style={{ fontWeight: "700" }}>
                 {order.pix.key}

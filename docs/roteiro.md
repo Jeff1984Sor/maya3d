@@ -22,6 +22,7 @@ atrás de um Provider, com testes de contrato e estado "não configurado" visív
 | 8e | Guardião visual: IA olha cada foto (personagem, marca, logo, time, pessoa real, qualidade); bloqueio por regra fixa; dono libera com motivo auditado | ✅ v0.12 |
 | 8f | App Android/iOS (Expo SDK 57): início, busca, assistente, produto, carrinho, frete, checkout Pix, pedidos; EAS por tag (contas e domínio para publicar) | ✅ v0.13 |
 | 9 | Mercado Livre (OAuth+PKCE, tokens cifrados, prévia com tarifa real, anúncio, pedidos pagos e perguntas por notificação) ✅ v0.14 · Shopee (assinatura HMAC, fotos enviadas à Shopee, push assinado de pedidos) ✅ v0.15 — ligam com domínio | ✅ |
+| 9b | Mercado Pago: Pix automático (QR + copia e cola), confirmação por consulta a cada 2 min e por aviso assinado; valor conferido antes de liberar | ✅ v0.16 |
 | 10 | Fatiador e renders em containers; CMS; conteúdo/MayaPost; app Expo; Analista | |
 
 ## O que o dono pluga depois (e o que acontece)
@@ -32,5 +33,5 @@ atrás de um Provider, com testes de contrato e estado "não configurado" visív
 | Chave de IA (OpenAI ou Anthropic) | cola em **Integrações** no painel; modelos escolhidos na tela IA | Enriquecer, Redator por canal, assistente da loja; com modelo de embedding (OpenAI), busca por significado |
 | WhatsApp Business (Meta) | cola token, ID do número e versão em **Integrações** (webhook precisa de domínio) | avisos, botão Aprovar/Pedir ajuste da amostra, comandos do dono ("1234 enviado", "fila", "vendas") |
 | Mercado Livre / Shopee | app nas plataformas + OAuth no painel | publicação e pedidos |
-| Gateway de pagamento | chaves no `.env` (ADR 0004) | checkout com cartão/Pix |
+| Mercado Pago | credenciais em **Integrações** (teste: TEST-…) | Pix automático já; cartão e aviso instantâneo com domínio |
 | Bucket GCS | `GCS_*` no `.env` | arquivos e backups fora do servidor |

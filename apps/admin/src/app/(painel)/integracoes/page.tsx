@@ -22,6 +22,12 @@ const GROUPS = [
     next: { href: "/mensagens", label: "caixa de saída →" },
   },
   {
+    id: "mercadopago",
+    title: "Mercado Pago (pagamentos)",
+    help: "Pix automático na loja: o cliente paga pelo QR Code e o pedido vai sozinho para a produção. Comece com as credenciais de TESTE (começam com TEST-). Cartão entra quando houver domínio.",
+    next: { href: "/pedidos", label: "pedidos →" },
+  },
+  {
     id: "geral",
     title: "Endereços públicos (domínio)",
     help: "Quando o domínio estiver no ar com HTTPS: endereço da API e da loja. Os marketplaces e a Meta usam estes endereços para retorno, avisos e fotos.",

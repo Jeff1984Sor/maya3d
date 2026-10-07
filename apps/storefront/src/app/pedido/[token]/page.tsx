@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Container } from "@/components/shop";
 import { money } from "@/lib/format";
 import { StoreApiError, storeApi, type PublicOrder } from "@/lib/store";
+import { AutoRefresh } from "./auto-refresh";
 import { CopyButton } from "./copy-button";
 
 export const metadata: Metadata = { title: "Meu pedido", robots: { index: false } };
@@ -29,7 +30,26 @@ export default async function PedidoPage({ params }: { params: Promise<{ token: 
         <section className="mt-8 rounded-2xl border-2 border-secondary bg-secondary/5 p-6">
           <h2 className="font-heading text-xl font-semibold">Pague com Pix</h2>
           <p className="mt-1 text-sm text-muted">Valor: <strong className="text-ink">{money(order.pix.amount)}</strong></p>
-          {order.pix.key ? (
+          {order.pix.automatic && order.pix.qr_code ? (
+            <div className="mt-4 grid items-center gap-5 sm:grid-cols-[12rem_1fr]">
+              {order.pix.qr_code_base64 && (
+                // eslint-disable-next-line @next/next/no-img-element -- QR Code gerado pelo Mercado Pago (base64)
+                <img src={`data:image/png;base64,${order.pix.qr_code_base64}`} alt="QR Code do Pix" className="w-48 rounded-xl bg-white p-2" />
+              )}
+              <div className="space-y-2">
+                <p className="text-sm">Abra o app do seu banco e leia o QR Code, ou use o Pix copia e cola:</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <code className="max-w-full truncate rounded-lg bg-surface px-3 py-2 text-xs">{order.pix.qr_code}</code>
+                  <CopyButton text={order.pix.qr_code} />
+                </div>
+                <p className="text-xs text-muted">
+                  A confirmação é automática: esta página atualiza sozinha quando o pagamento cair.
+                  {order.pix.expires_at && ` Válido até ${new Date(order.pix.expires_at).toLocaleString("pt-BR")}.`}
+                </p>
+              </div>
+              <AutoRefresh seconds={15} />
+            </div>
+          ) : order.pix.key ? (
             <div className="mt-4 space-y-2">
               <p className="text-sm">Chave Pix{order.pix.name ? ` (${order.pix.name})` : ""}:</p>
               <div className="flex flex-wrap items-center gap-2">

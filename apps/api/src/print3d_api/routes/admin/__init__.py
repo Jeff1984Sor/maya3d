@@ -23,6 +23,7 @@ from print3d_api.routes.admin import (
     mesh,
     orders,
     parametric,
+    payments,
     photo,
     pricing,
     products,
@@ -136,6 +137,7 @@ router.include_router(library.router)
 router.include_router(content.router)
 router.include_router(mercadolivre.router)
 router.include_router(shopee.router)
+router.include_router(payments.router)
 router.include_router(
     crud_router(
         Customer,

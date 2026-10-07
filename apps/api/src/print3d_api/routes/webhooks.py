@@ -12,7 +12,8 @@ from fastapi.responses import PlainTextResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from print3d_api.db.session import get_session
-from print3d_api.services import integrations, mercadolivre, shopee, whatsapp
+from print3d_api.services import integrations, mercadolivre, payments, shopee, whatsapp
+from print3d_channels.mercadopago import verify_signature as verify_mp_signature
 from print3d_notify.meta import WhatsAppSettings, parse_webhook, verify_signature
 
 log = logging.getLogger("print3d.webhooks")
@@ -116,4 +117,39 @@ async def shopee_events(
         return {"status": "ignorada"}
     if isinstance(payload, dict):
         background.add_task(_shopee_process, request.app.state, payload)
+    return {"status": "recebida"}
+
+
+async def _mp_process(app_state: Any, external_id: str) -> None:
+    async with app_state.session_factory() as session:
+        try:
+            paid = await payments.check(session, external_id)
+            log.info("aviso Mercado Pago", extra={"pagamento": external_id, "aprovado": paid})
+        except Exception:
+            await session.rollback()
+            log.exception("falha ao tratar aviso do Mercado Pago")
+
+
+@router.post("/mercadopago")
+async def mercadopago_events(
+    request: Request, background: BackgroundTasks, session: Session
+) -> dict[str, str]:
+    """Aviso de pagamento. Assinatura conferida quando há segredo; o status vale só depois de
+    relido na API do Mercado Pago com a nossa credencial."""
+    try:
+        body = await request.json()
+    except ValueError:
+        body = {}
+    data_id = str(
+        request.query_params.get("data.id") or (body.get("data") or {}).get("id") or ""
+    ).strip()
+    kind = request.query_params.get("type") or body.get("type") or body.get("topic")
+    if kind != "payment" or not data_id.isdigit():
+        return {"status": "ignorada"}
+    secret = await payments.webhook_secret(session)
+    if secret and not verify_mp_signature(
+        secret, request.headers.get("x-signature"), request.headers.get("x-request-id"), data_id
+    ):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "assinatura inválida")
+    background.add_task(_mp_process, request.app.state, data_id)
     return {"status": "recebida"}

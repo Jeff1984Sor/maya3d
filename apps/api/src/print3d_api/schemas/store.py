@@ -137,6 +137,11 @@ class PixInstructions(BaseModel):
     key: str | None
     name: str | None
     amount: Decimal
+    # Pix pelo gateway (Mercado Pago): QR + copia e cola, confirmação automática
+    automatic: bool = False
+    qr_code: str | None = None
+    qr_code_base64: str | None = None
+    expires_at: datetime | None = None
 
 
 class CheckoutOut(BaseModel):

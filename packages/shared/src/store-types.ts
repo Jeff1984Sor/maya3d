@@ -69,7 +69,16 @@ export type StoreSettings = {
   pix_enabled: boolean;
   assistant_enabled?: boolean;
 };
-export type Pix = { key: string | null; name: string | null; amount: string };
+export type Pix = {
+  key: string | null;
+  name: string | null;
+  amount: string;
+  /** Pix pelo gateway: QR Code + copia e cola, confirmação automática. */
+  automatic?: boolean;
+  qr_code?: string | null;
+  qr_code_base64?: string | null;
+  expires_at?: string | null;
+};
 export type PublicOrder = {
   number: number;
   status: string;
