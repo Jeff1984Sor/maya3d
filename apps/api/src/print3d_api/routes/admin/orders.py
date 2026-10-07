@@ -1,9 +1,9 @@
 from collections.abc import Sequence
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from print3d_api.db.session import get_session
@@ -20,7 +20,8 @@ from print3d_api.schemas.orders import (
     PrintJobOut,
     QueueGroup,
 )
-from print3d_api.services import audit, orders
+from print3d_api.services import audit, orders, whatsapp
+from print3d_notify.meta import MetaWhatsAppProvider, WhatsAppSettings
 
 router = APIRouter(tags=["admin: pedidos e produção"])
 Session = Annotated[AsyncSession, Depends(get_session)]
@@ -137,3 +138,56 @@ async def list_notifications(
     if status_:
         stmt = stmt.where(Notification.status == status_)
     return (await session.scalars(stmt)).all()
+
+
+class WhatsAppStatus(BaseModel):
+    configured: bool
+    webhook_ready: bool
+    template_fallback: bool
+    graph_version: str | None
+    pending: int
+    failed: int
+
+
+@router.get("/whatsapp/status", response_model=WhatsAppStatus)
+async def whatsapp_status(request: Request, session: Session) -> WhatsAppStatus:
+    wa: WhatsAppSettings = request.app.state.whatsapp
+    counts = dict(
+        (
+            await session.execute(
+                select(Notification.status, func.count())
+                .where(Notification.status.in_(["pendente", "falhou"]))
+                .group_by(Notification.status)
+            )
+        ).all()
+    )
+    return WhatsAppStatus(
+        configured=wa.configured,
+        webhook_ready=bool(wa.app_secret and wa.verify_token),
+        template_fallback=bool(wa.template_status),
+        graph_version=wa.graph_version,
+        pending=counts.get("pendente", 0),
+        failed=counts.get("falhou", 0),
+    )
+
+
+@router.post("/notifications/dispatch")
+async def dispatch_now(request: Request, session: Session) -> dict[str, int]:
+    """Envia as pendentes agora (o despachante automático faz isso a cada ciclo)."""
+    wa: WhatsAppSettings = request.app.state.whatsapp
+    if not wa.configured:
+        raise HTTPException(status.HTTP_409_CONFLICT, "WhatsApp não configurado no servidor")
+    return {"sent": await whatsapp.dispatch_pending(session, MetaWhatsAppProvider(wa), limit=100)}
+
+
+@router.post("/notifications/{note_id}/retry", response_model=NotificationOut)
+async def retry_notification(note_id: int, session: Session) -> Notification:
+    note = await session.get(Notification, note_id)
+    if note is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "mensagem não existe")
+    if note.status != "falhou" or not note.to:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "só mensagens que falharam")
+    note.status, note.attempts, note.last_error = "pendente", 0, None
+    await session.commit()
+    await session.refresh(note)
+    return note

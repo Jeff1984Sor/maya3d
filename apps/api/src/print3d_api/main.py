@@ -1,5 +1,7 @@
 """Fábrica da aplicação FastAPI."""
 
+import asyncio
+import contextlib
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -12,16 +14,20 @@ from redis.asyncio import Redis
 
 from print3d_api.config import Settings, get_settings
 from print3d_api.db.session import create_engine, create_session_factory
+from print3d_api.dispatcher import run_dispatcher
 from print3d_api.health import HealthChecker
 from print3d_api.logging import configure_logging
 from print3d_api.middleware import RequestContextMiddleware
-from print3d_api.routes import admin, brand, health, store
+from print3d_api.routes import admin, brand, health, store, webhooks
 from print3d_api.services.brand import BrandService
+from print3d_notify.meta import MetaWhatsAppProvider, WhatsAppSettings
 
 log = logging.getLogger("print3d.api")
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None, whatsapp: WhatsAppSettings | None = None
+) -> FastAPI:
     settings = settings or get_settings()
 
     @asynccontextmanager
@@ -31,10 +37,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.session_factory = create_session_factory(engine)
         app.state.health_checker = HealthChecker(engine, redis)
         app.state.queue = await create_pool(RedisSettings.from_dsn(settings.redis_url))
+        dispatcher: asyncio.Task[None] | None = None
+        wa: WhatsAppSettings = app.state.whatsapp
+        if wa.configured and settings.environment != "ci":
+            app.state.dispatch_now = asyncio.Event()
+            dispatcher = asyncio.create_task(
+                run_dispatcher(
+                    app.state.session_factory, MetaWhatsAppProvider(wa), app.state.dispatch_now
+                )
+            )
         log.info("api iniciada", extra={"release": settings.release, "env": settings.environment})
         try:
             yield
         finally:
+            if dispatcher is not None:
+                dispatcher.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await dispatcher
             await app.state.queue.aclose()
             await redis.aclose()
             await engine.dispose()
@@ -50,6 +69,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         openapi_url=None if settings.environment == "production" else "/openapi.json",
     )
     app.state.settings = settings
+    app.state.whatsapp = whatsapp or WhatsAppSettings()
     app.state.brand_service = BrandService(settings.brand_cache_ttl_seconds)
 
     app.add_middleware(RequestContextMiddleware)
@@ -66,4 +86,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(brand.router)
     app.include_router(admin.router)
     app.include_router(store.router)
+    app.include_router(webhooks.router)
     return app

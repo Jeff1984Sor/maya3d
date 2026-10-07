@@ -25,7 +25,7 @@ atrás de um Provider, com testes de contrato e estado "não configurado" visív
 | Impressora | cadastra em Impressoras (status ativa) + perfil do fatiador | gramas/tempo reais, preços reais, fila de impressão |
 | Domínio | DNS + `BASE_DOMAIN` + certbot (runbook) | HTTPS, login de clientes, callbacks ML/Shopee/Meta |
 | Chave de IA (OpenAI ou Anthropic) | `AI_PROVIDER` + `AI_API_KEY` no `.env`; modelos escolhidos no painel (IA) | Enriquecer, Redator, Guardião visual, assistente |
-| WhatsApp Business (Meta) | token + número no `.env` | avisos de venda e status de pedido |
+| WhatsApp Business (Meta) | `WHATSAPP_*` no `.env` (token, número, versão; webhook com domínio) | avisos, botão Aprovar/Pedir ajuste da amostra, comandos do dono ("1234 enviado", "fila", "vendas") |
 | Mercado Livre / Shopee | app nas plataformas + OAuth no painel | publicação e pedidos |
 | Gateway de pagamento | chaves no `.env` (ADR 0004) | checkout com cartão/Pix |
 | Bucket GCS | `GCS_*` no `.env` | arquivos e backups fora do servidor |

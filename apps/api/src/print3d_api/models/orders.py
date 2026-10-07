@@ -154,6 +154,25 @@ class Notification(IdMixin, TimestampMixin, Base):
     attempts: Mapped[int] = mapped_column(Integer, default=0)
     last_error: Mapped[str | None] = mapped_column(Text)
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # id da mensagem no provedor (wamid): liga a resposta de botão ao pedido
+    provider_message_id: Mapped[str | None] = mapped_column(String(120), index=True)
+
+
+class InboundMessage(IdMixin, TimestampMixin, Base):
+    """Mensagem recebida pelo webhook. Id único do provedor = idempotência (a Meta reenvia)."""
+
+    __tablename__ = "inbound_messages"
+
+    provider_message_id: Mapped[str] = mapped_column(String(120), unique=True)
+    channel: Mapped[str] = mapped_column(String(20), default="whatsapp")
+    sender: Mapped[str] = mapped_column(String(32), index=True)
+    kind: Mapped[str] = mapped_column(String(20))
+    text: Mapped[str | None] = mapped_column(Text)
+    button_id: Mapped[str | None] = mapped_column(String(256))
+    context_id: Mapped[str | None] = mapped_column(String(120))
+    media_id: Mapped[str | None] = mapped_column(String(120))
+    handled_as: Mapped[str | None] = mapped_column(String(40))  # comando_dono | aprovacao | ...
+    order_id: Mapped[int | None] = mapped_column(Integer)
 
 
 class Cart(TimestampMixin, Base):

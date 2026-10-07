@@ -1316,6 +1316,7 @@ dependencies = [
     { name = "print3d-ai" },
     { name = "print3d-core" },
     { name = "print3d-mesh" },
+    { name = "print3d-notify" },
     { name = "psycopg", extra = ["binary"] },
     { name = "pydantic" },
     { name = "pydantic-settings" },
@@ -1336,6 +1337,7 @@ requires-dist = [
     { name = "print3d-ai", editable = "packages/ai" },
     { name = "print3d-core", editable = "packages/core" },
     { name = "print3d-mesh", editable = "packages/mesh" },
+    { name = "print3d-notify", editable = "packages/notify" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },
     { name = "pydantic", specifier = ">=2.10" },
     { name = "pydantic-settings", specifier = ">=2.7" },
@@ -1405,11 +1407,17 @@ name = "print3d-notify"
 version = "0.1.0"
 source = { editable = "packages/notify" }
 dependencies = [
+    { name = "httpx" },
     { name = "pydantic" },
+    { name = "pydantic-settings" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "pydantic", specifier = ">=2.10" }]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.28" },
+    { name = "pydantic", specifier = ">=2.10" },
+    { name = "pydantic-settings", specifier = ">=2.7" },
+]
 
 [[package]]
 name = "print3d-social"

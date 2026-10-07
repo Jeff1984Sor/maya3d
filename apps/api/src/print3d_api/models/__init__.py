@@ -7,6 +7,7 @@ from print3d_api.models.governance import AuditLog, GuardianTermOverride, Licens
 from print3d_api.models.orders import (
     Cart,
     Customer,
+    InboundMessage,
     Notification,
     OpsConfig,
     Order,
@@ -28,6 +29,7 @@ __all__ = [
     "Customer",
     "Design",
     "GuardianTermOverride",
+    "InboundMessage",
     "License",
     "Material",
     "Niche",

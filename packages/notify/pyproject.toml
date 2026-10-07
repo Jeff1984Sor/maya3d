@@ -3,7 +3,7 @@ name = "print3d-notify"
 version = "0.1.0"
 description = "NotifyProvider: WhatsApp (gateway MayaSec e Meta Cloud API)"
 requires-python = ">=3.12"
-dependencies = ["pydantic>=2.10"]
+dependencies = ["pydantic>=2.10", "pydantic-settings>=2.7", "httpx>=0.28"]
 
 [build-system]
 requires = ["hatchling"]
