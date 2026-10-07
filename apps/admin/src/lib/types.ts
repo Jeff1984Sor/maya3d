@@ -76,6 +76,62 @@ export interface AuditEntry {
   payload: Record<string, unknown>;
 }
 
+export interface ProductSummary {
+  id: number;
+  slug: string;
+  niche: string;
+  category: string;
+  subcategory: string | null;
+  title: string;
+  description: string | null;
+  tags: string[];
+  occasions: string[];
+  min_material: string | null;
+  customizable: boolean;
+  status: "rascunho" | "ativo" | "pausado";
+  guardian_status: "aprovado" | "bloqueado" | "pendente";
+  guardian_reason: string | null;
+  age_rating: string | null;
+  updated_at: string;
+  variant_count: number;
+  available: boolean;
+}
+
+export interface Variant {
+  id: number;
+  sku: string;
+  size_label: string | null;
+  finish: string;
+  grams_by_material: Record<string, number> | null;
+  print_seconds: number | null;
+  post_minutes: number;
+  packaging_id: number | null;
+  packed_weight_g: number | null;
+  slicing_source: "a_confirmar" | "manual" | "fatiador";
+}
+
+export interface ProductDetail extends ProductSummary {
+  design: {
+    name: string;
+    origin: string;
+    license: string;
+    author: string | null;
+    source_url: string | null;
+    attribution_text: string | null;
+  };
+  variants: Variant[];
+  disclaimers: string[];
+  attribution_required: boolean;
+}
+
+export interface VariantQuote {
+  ready: boolean;
+  reason: string | null;
+  cost_total: string | null;
+  quotes: ChannelQuote[];
+  warnings: string[];
+}
+
 export interface ModelInfo {
   slug: string;
   title: string;

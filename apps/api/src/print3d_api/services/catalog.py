@@ -108,7 +108,15 @@ async def create_product(session: AsyncSession, data: ProductCreate) -> Product:
     await session.flush()
     await apply_guardian(session, product, design)
     await session.commit()
+    await _reload(session, product, design)
     return product
+
+
+async def _reload(session: AsyncSession, *objs: Product | Design) -> None:
+    """Relê colunas geradas pelo banco (updated_at) dentro do contexto assíncrono; sem isso o
+    SQLAlchemy tentaria carregar depois, fora do greenlet (MissingGreenlet)."""
+    for obj in objs:
+        await session.refresh(obj)
 
 
 async def get_product(session: AsyncSession, product_id: int) -> tuple[Product, Design]:
@@ -151,6 +159,7 @@ async def update_product(session: AsyncSession, product_id: int, patch: ProductP
             decision=patch.status,
         )
     await session.commit()
+    await _reload(session, product, design)
     return product
 
 
@@ -189,6 +198,7 @@ async def add_variant(session: AsyncSession, product_id: int, data: VariantIn) -
     )
     session.add(variant)
     await session.commit()
+    await session.refresh(variant)
     return variant
 
 
@@ -208,6 +218,7 @@ async def update_variant(
     if variant.slicing_source != "fatiador":
         variant.slicing_source = _slicing_source(variant.grams_by_material, variant.print_seconds)
     await session.commit()
+    await session.refresh(variant)
     return variant
 
 

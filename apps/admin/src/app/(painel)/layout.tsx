@@ -5,6 +5,7 @@ import { signOut } from "../login/actions";
 
 const TOOLS = [
   { href: "/", label: "Visão geral" },
+  { href: "/produtos", label: "Produtos" },
   { href: "/parametricos", label: "Paramétricos" },
   { href: "/calculadora", label: "Calculadora de preço" },
   { href: "/guardiao", label: "Guardião" },
