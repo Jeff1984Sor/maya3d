@@ -12,7 +12,7 @@ from fastapi.responses import PlainTextResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from print3d_api.db.session import get_session
-from print3d_api.services import integrations, mercadolivre, whatsapp
+from print3d_api.services import integrations, mercadolivre, shopee, whatsapp
 from print3d_notify.meta import WhatsAppSettings, parse_webhook, verify_signature
 
 log = logging.getLogger("print3d.webhooks")
@@ -89,4 +89,31 @@ async def mercadolivre_events(request: Request, background: BackgroundTasks) -> 
         return {"status": "ignorada"}
     if isinstance(payload, dict) and payload.get("topic") and payload.get("resource"):
         background.add_task(_ml_process, request.app.state, payload)
+    return {"status": "recebida"}
+
+
+async def _shopee_process(app_state: Any, payload: dict[str, Any]) -> None:
+    async with app_state.session_factory() as session:
+        try:
+            result = await shopee.handle_push(session, payload)
+            log.info("push Shopee", extra={"codigo": payload.get("code"), "resultado": result})
+        except Exception:
+            await session.rollback()
+            log.exception("falha ao tratar push da Shopee")
+
+
+@router.post("/shopee")
+async def shopee_events(
+    request: Request, background: BackgroundTasks, session: Session
+) -> dict[str, str]:
+    """Push assinado (Authorization = HMAC da URL + corpo). Resposta rápida; trabalho depois."""
+    raw = await request.body()
+    if not await shopee.verify(session, raw, request.headers.get("authorization")):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "assinatura inválida")
+    try:
+        payload = json.loads(raw)
+    except ValueError:
+        return {"status": "ignorada"}
+    if isinstance(payload, dict):
+        background.add_task(_shopee_process, request.app.state, payload)
     return {"status": "recebida"}

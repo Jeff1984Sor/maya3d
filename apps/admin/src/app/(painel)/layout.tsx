@@ -23,6 +23,7 @@ const TOOLS = [
   { href: "/marca", label: "Marca" },
   { href: "/operacao", label: "Operação" },
   { href: "/mercado-livre", label: "Mercado Livre" },
+  { href: "/shopee", label: "Shopee" },
   { href: "/integracoes", label: "Integrações" },
   { href: "/ia", label: "IA" },
   { href: "/mensagens", label: "Caixa de saída" },

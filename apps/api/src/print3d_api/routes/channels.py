@@ -11,7 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from print3d_api.db.session import get_session
 from print3d_api.deps import get_queue
 from print3d_api.services import mercadolivre as ml
+from print3d_api.services import shopee as sp
 from print3d_channels.mercadolivre import MercadoLivreError
+from print3d_channels.shopee import ShopeeError
 
 router = APIRouter(prefix="/v1/channels", tags=["canais"])
 
@@ -40,3 +42,20 @@ async def ml_callback(
     except (ml.MLError, MercadoLivreError) as exc:
         return _page("Não deu para conectar", str(exc), 400)
     return _page("Mercado Livre conectado ✅", f"Conta {nickname}. Pode fechar esta aba.")
+
+
+@router.get("/shopee/callback", response_class=HTMLResponse)
+async def shopee_callback(
+    session: Annotated[AsyncSession, Depends(get_session)],
+    redis: Annotated[ArqRedis, Depends(get_queue)],
+    code: Annotated[str | None, Query(max_length=200)] = None,
+    shop_id: Annotated[str | None, Query(max_length=30, pattern=r"^\d+$")] = None,
+    state: Annotated[str | None, Query(max_length=100)] = None,
+) -> HTMLResponse:
+    if not code or not shop_id or not state:
+        return _page("Conexão cancelada", "Volte ao painel e tente de novo.", 400)
+    try:
+        name = await sp.finish_connect(session, redis, code, shop_id, state)
+    except (sp.ShopeeServiceError, ShopeeError) as exc:
+        return _page("Não deu para conectar", str(exc), 400)
+    return _page("Shopee conectada ✅", f"Loja {name}. Pode fechar esta aba.")

@@ -34,6 +34,12 @@ const GROUPS = [
     next: { href: "/mercado-livre", label: "conectar conta →" },
   },
   {
+    id: "shopee",
+    title: "Shopee",
+    help: "Crie um app na Shopee Open Platform e cole o Partner ID e a Partner Key. Depois conecte a loja na página Shopee.",
+    next: { href: "/shopee", label: "conectar loja →" },
+  },
+  {
     id: "frete",
     title: "Frete (Melhor Envio)",
     help: "Cotação automática de Correios e transportadoras para fora de Sorocaba. Gere o token no painel do Melhor Envio e preencha também o CEP de origem em Operação.",

@@ -89,6 +89,14 @@ FIELDS: tuple[Field, ...] = (
         hint="developers.mercadolivre.com.br → sua aplicação",
     ),
     Field("ML_CLIENT_SECRET", "mercadolivre", "Chave secreta", secret=True),
+    Field("SHOPEE_PARTNER_ID", "shopee", "Partner ID", hint="open.shopee.com → seu app"),
+    Field("SHOPEE_PARTNER_KEY", "shopee", "Partner Key", secret=True),
+    Field(
+        "SHOPEE_HOST",
+        "shopee",
+        "Endereço da API (opcional)",
+        hint="vazio = produção; teste: https://partner.test-stable.shopeemobile.com",
+    ),
     Field(
         "MELHORENVIO_TOKEN",
         "frete",

@@ -7,7 +7,7 @@ import { requireSession } from "@/lib/auth";
 
 export type IntegrationField = {
   key: string;
-  group: "ia" | "whatsapp" | "frete" | "geral" | "mercadolivre";
+  group: "ia" | "whatsapp" | "frete" | "geral" | "mercadolivre" | "shopee";
   label: string;
   secret: boolean;
   hint: string;

@@ -26,6 +26,7 @@ from print3d_api.routes.admin import (
     photo,
     pricing,
     products,
+    shopee,
 )
 from print3d_api.routes.admin.crud import crud_router
 from print3d_api.schemas.admin import (
@@ -134,6 +135,7 @@ router.include_router(integrations.router)
 router.include_router(library.router)
 router.include_router(content.router)
 router.include_router(mercadolivre.router)
+router.include_router(shopee.router)
 router.include_router(
     crud_router(
         Customer,

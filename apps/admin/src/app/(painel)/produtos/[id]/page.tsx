@@ -4,6 +4,7 @@ import { addVariant, deleteProduct, deleteVariant, setStatus, updateProduct } fr
 import type { ChannelCopy } from "@/actions/ai";
 import type { ProductImage } from "@/actions/content";
 import type { MlListing, MlPreview, MlStatus } from "@/actions/mercadolivre";
+import type { ShopeeStatus } from "@/actions/shopee";
 import { ChannelCopyPanel } from "@/components/channel-copy-panel";
 import { ConfirmSubmit } from "@/components/confirm-submit";
 import { Flash } from "@/components/flash";
@@ -11,6 +12,7 @@ import { GuardianBadge, StatusBadge } from "@/components/product-badges";
 import { MlPublish } from "@/components/ml-publish";
 import { ProductForm } from "@/components/product-form";
 import { ProductImages } from "@/components/product-images";
+import { ShopeePublish } from "@/components/shopee-publish";
 import { Alert, Badge, Button, Card, Label, PageHeader, inputClass } from "@/components/ui";
 import { AdminApiError, api } from "@/lib/admin-api";
 import { formatMoney } from "@/lib/form";
@@ -36,7 +38,7 @@ export default async function ProdutoPage({
     if (error instanceof AdminApiError && error.status === 404) notFound();
     throw error;
   }
-  const [niches, materials, packaging, copies, images, mlStatus, mlListings, quotes] = await Promise.all([
+  const [niches, materials, packaging, copies, images, mlStatus, mlListings, spStatus, spListings, quotes] = await Promise.all([
     api.get<Niche[]>("/niches"),
     api.get<Material[]>("/materials"),
     api.get<Packaging[]>("/packaging"),
@@ -44,6 +46,8 @@ export default async function ProdutoPage({
     api.get<ProductImage[]>(`/products/${id}/images`),
     api.get<MlStatus>("/mercadolivre/status"),
     api.get<MlListing[]>(`/mercadolivre/listings?product_id=${id}`),
+    api.get<ShopeeStatus>("/shopee/status"),
+    api.get<MlListing[]>(`/shopee/listings?product_id=${id}`),
     Promise.all(product.variants.map((v) => api.get<VariantQuote>(`/products/${id}/variants/${v.id}/quote`))),
   ]);
   let mlPreview: MlPreview | null = null;
@@ -183,6 +187,7 @@ export default async function ProdutoPage({
             previewError={mlPreviewError}
             query={query}
           />
+          <ShopeePublish productId={id} variants={product.variants} status={spStatus} listings={spListings} />
           <Card title="Guardião">
             {product.guardian_status === "bloqueado" ? (
               <Alert tone="error">{product.guardian_reason}</Alert>
