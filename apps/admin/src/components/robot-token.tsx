@@ -23,7 +23,7 @@ export function RobotToken({ active, expiresAt }: { active: boolean; expiresAt: 
       </div>
       {token && (
         <div className="mb-3 space-y-2 rounded-xl border border-secondary bg-secondary/5 p-3">
-          <p className="text-xs font-medium">Copie agora (não aparece de novo):</p>
+          <p className="text-xs font-medium">Arquivo robo-token.txt baixado ✓ — o robô já encontra. (Não aparece de novo.)</p>
           <code className="block break-all rounded bg-bg p-2 text-xs">{token}</code>
           <Button
             variant="secondary"
@@ -47,11 +47,18 @@ export function RobotToken({ active, expiresAt }: { active: boolean; expiresAt: 
               else {
                 setToken(res.token);
                 setError(null);
+                // baixa o arquivo na hora: o robô procura em Downloads (robo-token.txt)
+                const url = URL.createObjectURL(new Blob([res.token], { type: "text/plain" }));
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "robo-token.txt";
+                a.click();
+                URL.revokeObjectURL(url);
               }
             })
           }
         >
-          {active ? "Gerar novo token" : "Gerar token"}
+          {active ? "Gerar novo token (baixa o arquivo)" : "Gerar token (baixa o arquivo)"}
         </Button>
         {active && (
           <Button variant="danger" disabled={pending} onClick={() => start(async () => void (await revokeRobotToken()))}>

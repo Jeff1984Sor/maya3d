@@ -3,10 +3,10 @@ pela IA. Roda no computador do dono (onde estão os arquivos) e fala com a API d
 
 Uso:
   python tools/robo_acervo.py --acervo <pasta> --api http://<servidor>:39000 \
-      --token-file <arquivo com o token de robô> [--dry-run] [--so-categoria "Cruzes e Crucifixos"]
+      [--token-file <arquivo>] [--dry-run] [--so-categoria "Cruzes e Crucifixos"]
 
-- Token de robô: painel → Integrações → Robô → Gerar token (vale 7 dias). Fica num arquivo
-  local; o robô nunca imprime o token.
+- Token de robô: painel → Integrações → Robô → Gerar token (vale 7 dias). O navegador baixa
+  robo-token.txt e o robô pega o mais recente em Downloads; nunca imprime o token.
 - Retoma de onde parou: o progresso fica em <acervo>/robo-estado.json.
 - Coleções por categoria do manifesto; cada pasta vai zipada (mantém a organização).
 - Produtos nascem em RASCUNHO e bloqueados pelo Guardião até a licença da coleção ser
@@ -82,6 +82,12 @@ def has_meshes(folder: Path) -> bool:
     return any(p.suffix.lower() in MESH_EXT for p in folder.rglob("*") if p.is_file())
 
 
+def newest_token_file() -> Path | None:
+    downloads = Path.home() / "Downloads"
+    files = sorted(downloads.glob("robo-token*.txt"), key=lambda p: p.stat().st_mtime, reverse=True)
+    return files[0] if files else None
+
+
 def unique_title(title: str, used: set[str]) -> str:
     base = " ".join(title.split())[:190] or "Peça"
     candidate, n = base, 2
@@ -97,7 +103,12 @@ def main() -> None:
     )
     ap.add_argument("--acervo", required=True, type=Path)
     ap.add_argument("--api", required=True)
-    ap.add_argument("--token-file", required=True, type=Path)
+    ap.add_argument(
+        "--token-file",
+        type=Path,
+        default=None,
+        help="padrão: o robo-token*.txt mais recente na pasta Downloads",
+    )
     ap.add_argument("--dry-run", action="store_true", help="só mostra o plano, não envia nada")
     ap.add_argument("--so-categoria", default=None)
     ap.add_argument("--sem-ia", action="store_true", help="cria os produtos sem enriquecer")
@@ -123,7 +134,12 @@ def main() -> None:
     if args.dry_run:
         return
 
-    token = args.token_file.read_text(encoding="utf-8").strip()
+    token_file = args.token_file or newest_token_file()
+    if token_file is None:
+        sys.exit(
+            "Token não encontrado: no painel, Integrações → Robô → Gerar token (baixa o arquivo)."
+        )
+    token = token_file.read_text(encoding="utf-8").strip()
     if not token.startswith("rb_"):
         sys.exit("O arquivo do token não parece um token de robô (começa com rb_).")
     api = Api(args.api, token)
