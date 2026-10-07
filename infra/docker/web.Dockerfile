@@ -1,6 +1,6 @@
 # Imagem dos apps Next.js: docker build --build-arg APP=storefront|admin
 # Contexto de build: raiz do repositório.
-FROM node:22-alpine AS build
+FROM node:26-alpine AS build
 ARG APP
 RUN corepack enable
 WORKDIR /src
@@ -13,7 +13,7 @@ RUN if [ -f pnpm-lock.yaml ]; then F=--frozen-lockfile; else F=--no-frozen-lockf
  && pnpm install $F --filter "@print3d/${APP}..." \
  && pnpm --filter "@print3d/${APP}" build
 
-FROM node:22-alpine
+FROM node:26-alpine
 ARG APP
 ARG RELEASE=dev
 ENV NODE_ENV=production HOSTNAME=0.0.0.0 PORT=3000 NEXT_TELEMETRY_DISABLED=1 RELEASE=${RELEASE}
