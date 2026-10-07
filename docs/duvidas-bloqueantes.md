@@ -1,9 +1,12 @@
-# Dúvidas bloqueantes (máx. 5)
+# Dúvidas bloqueantes
 
-Não impedem o código da Fase 0, mas impedem **ativar** staging e começar a Fase 1.
+Respondidas:
+1. ~~Repositório~~ → `github.com/Jeff1984Sor/maya3d`, registro `ghcr.io/jeff1984sor`.
+2. ~~Domínio~~ → por enquanto o IP do servidor, em portas dedicadas ([ADR 0007](adr/0007-acesso-por-ip-e-portas-dedicadas.md)).
 
-1. **Repositório e registro:** o repositório GitHub já existe? Qual usuário/org (define `REGISTRY` em `ghcr.io/...`)?
-2. **Domínio:** qual domínio base vai nos subdomínios `loja/admin/api` (e `-staging`)? O DNS está sob seu controle?
-3. **Postgres do prod2:** qual versão, e o pacote pgvector pode ser instalado no host? (Sem ele a migração 0001 falha.)
-4. **Impressoras:** quais modelos Bambu Lab (com AMS? fechada?) — define perfis do fatiador, materiais disponíveis (ASA exige fechada) e o ADR 0003.
-5. **Bucket GCS:** já existe um bucket para arquivos (STL/renders) e outro para backups, e a VM tem permissão (service account)?
+Em aberto (não bloqueiam a Fase 0; o bootstrap diagnostica):
+3. **Versão do Postgres e pgvector no prod2:** o `bootstrap-server.sh` detecta a versão e diz o comando exato de instalação do pgvector se faltar.
+4. **Impressoras Bambu (modelo, AMS, fechada?):** necessário na Fase 1 (perfis do fatiador, ADR 0003; ASA exige impressora fechada). Para descobrir: o modelo está na etiqueta ou no app Bambu Handy.
+5. **Buckets GCS (arquivos e backups):** sem bucket, backup fica só local e arquivos 3D só no disco. Necessário antes da Fase 1 para armazenar STL/renders.
+
+Pendência nova: **domínio + HTTPS** antes da Fase 3 (callbacks OAuth/webhooks exigem HTTPS) e antes de qualquer login.

@@ -21,12 +21,15 @@ O script cria diretórios, role + banco `print3d_staging`, extensões (`vector`,
 ## 3. Registro de imagens
 `docker login ghcr.io -u <usuario>` com token `read:packages` (fica em `~/.docker/config.json`).
 
-## 4. DNS e HTTPS
-Aponte para o IP do prod2: `loja`, `admin`, `api` (produção) e `loja-staging`, `admin-staging`, `api-staging` sob `BASE_DOMAIN`.
+## 4. Acesso por IP e firewall (modo atual, ADR 0007)
+Sem domínio: `PUBLIC_HOST` = IP externo (o bootstrap detecta). Portas: **staging 38000/38001/38002, prod 39000/39001/39002**.
 ```bash
-bash /srv/print3d/ops/nginx-render.sh staging
-sudo certbot --nginx -d loja-staging.DOMINIO -d admin-staging.DOMINIO -d api-staging.DOMINIO --redirect
+bash /srv/print3d/ops/check-ports.sh staging     # confirma que nenhum outro serviço usa as portas
+gcloud compute firewall-rules create print3d-staging --allow tcp:38000-38002 --source-ranges SEU_IP/32
 ```
+Se alguma porta estiver ocupada, troque em `infra/compose/env/<stack>.env` e commite. Acesso é HTTP puro: não coloque dados reais nem login até haver domínio + HTTPS.
+
+**Quando houver domínio:** preencher `BASE_DOMAIN`, DNS (`loja|admin|api` e `-staging`), `ops/nginx-render.sh <stack>`, `certbot --nginx ...`, e mudar `BIND_ADDR=127.0.0.1`.
 
 ## 5. Secrets no GitHub
 `SSH_HOST`, `SSH_USER`, `SSH_KEY` (chave privada dedicada ao deploy), `SSH_KNOWN_HOSTS` (`ssh-keyscan PROD2`).

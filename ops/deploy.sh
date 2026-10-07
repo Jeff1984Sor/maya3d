@@ -18,6 +18,7 @@ TAG_FILE="${STACK_DIR}/.current_tag"
 PREVIOUS_TAG="$(cat "$TAG_FILE" 2>/dev/null || true)"
 
 log "deploy ${STACK} -> ${IMAGE_TAG} (anterior: ${PREVIOUS_TAG:-nenhuma})"
+bash "$(dirname "$0")/check-ports.sh" "$STACK"
 compose pull
 
 log "migrações"

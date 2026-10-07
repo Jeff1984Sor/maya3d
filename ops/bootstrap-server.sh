@@ -28,6 +28,18 @@ if [[ ! -f "${STACK_DIR}/.env" ]]; then
       -e "s#/print3d_staging#/${DB}#" \
       -e "s#^FERNET_KEY=.*#FERNET_KEY=${FERNET}#" \
       "$(dirname "$0")/../infra/compose/env/server.env.example" > "${STACK_DIR}/.env"
+  # modo IP (ADR 0007): detecta o IP externo (metadata do GCP) e monta o CORS com as portas da stack
+  # shellcheck disable=SC1090
+  source "$(dirname "$0")/../infra/compose/env/${STACK}.env"
+  EXT_IP="$(curl -fsS -H 'Metadata-Flavor: Google' --max-time 3 \
+    http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip 2>/dev/null || true)"
+  if [[ -n "$EXT_IP" ]]; then
+    sed -i -e "s#^PUBLIC_HOST=.*#PUBLIC_HOST=${EXT_IP}#" \
+      -e "s#^CORS_ORIGINS=.*#CORS_ORIGINS=[\"http://${EXT_IP}:${STOREFRONT_PORT}\",\"http://${EXT_IP}:${ADMIN_PORT}\"]#" \
+      "${STACK_DIR}/.env"
+  else
+    log "IP externo não detectado: preencha PUBLIC_HOST e CORS_ORIGINS em ${STACK_DIR}/.env"
+  fi
   # senha também fica disponível para o passo de criação do role abaixo
   printf '%s' "$DB_PASS" > "${STACK_DIR}/.dbpass.tmp"
   log "EDITE ${STACK_DIR}/.env: BASE_DOMAIN, REGISTRY, CORS_ORIGINS, chaves de IA"
@@ -44,6 +56,9 @@ else
 fi
 rm -f "${STACK_DIR}/.dbpass.tmp"
 
+PGMAJOR="$(sudo -u postgres psql -Atc "show server_version_num" | cut -c1-2)"
+sudo -u postgres psql -Atc "select 1 from pg_available_extensions where name='vector'" | grep -q 1 \
+  || die "pgvector ausente no Postgres ${PGMAJOR}: sudo apt install postgresql-${PGMAJOR}-pgvector (e rode de novo)"
 log "extensões (exige pacote postgresql-<versão>-pgvector instalado no host)"
 for ext in vector pg_trgm unaccent; do
   sudo -u postgres psql -d "$DB" -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS ${ext}"

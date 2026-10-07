@@ -11,3 +11,4 @@ Copie [0000-template.md](0000-template.md).
 | [0004](0004-gateway-de-cartao.md) | Gateway de cartão | **Proposta — decidir antes da Fase 6** |
 | [0005](0005-topologia-de-deploy.md) | Topologia de deploy e migrações | Aceita |
 | [0006](0006-marca-trocavel.md) | Marca trocável + guarda de CI | Aceita |
+| [0007](0007-acesso-por-ip-e-portas-dedicadas.md) | Acesso por IP e portas dedicadas (emenda o 0005) | Aceita (temporária) |

@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Uso: ops/smoke.sh <staging|prod> [--local]
-# Smoke tests pós-deploy. Padrão: via HTTPS público (valida Nginx + certificado).
-# --local: direto nas portas do localhost (antes de configurar DNS/Nginx).
+# Smoke tests pós-deploy. Modos:
+#   padrão com BASE_DOMAIN vazio: http://PUBLIC_HOST:porta (modo IP, valida firewall/portas)
+#   padrão com BASE_DOMAIN: HTTPS pelos subdomínios (valida Nginx + certificado)
+#   --local: localhost (ignora firewall)
 set -euo pipefail
 SCRIPT_NAME=smoke
 # shellcheck source=lib/common.sh
@@ -12,6 +14,9 @@ load_stack_env
 
 if [[ "${2:-}" == "--local" ]]; then
   API="http://127.0.0.1:${API_PORT}"; STORE="http://127.0.0.1:${STOREFRONT_PORT}"; ADMIN="http://127.0.0.1:${ADMIN_PORT}"
+elif [[ -z "${BASE_DOMAIN:-}" ]]; then
+  : "${PUBLIC_HOST:?PUBLIC_HOST não definido no .env}"
+  API="http://${PUBLIC_HOST}:${API_PORT}"; STORE="http://${PUBLIC_HOST}:${STOREFRONT_PORT}"; ADMIN="http://${PUBLIC_HOST}:${ADMIN_PORT}"
 else
   API="https://$(stack_host api)"; STORE="https://$(stack_host loja)"; ADMIN="https://$(stack_host admin)"
 fi
