@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from print3d_api.db.session import get_session
 from print3d_api.models.pricing import COST_CONFIG_ID, CostConfig
 from print3d_api.schemas.admin import CostConfigIn, CostConfigOut
+from print3d_api.services import audit
 
 router = APIRouter(prefix="/cost-config", tags=["admin: custos"])
 Session = Annotated[AsyncSession, Depends(get_session)]
@@ -31,6 +32,14 @@ async def put_cost_config(payload: CostConfigIn, session: Session) -> CostConfig
     data["margin_by_category"] = {k: str(v) for k, v in payload.margin_by_category.items()}
     for field, value in data.items():
         setattr(config, field, value)
+    await audit.record(
+        session,
+        actor="admin",
+        action="custos_alterados",
+        entity_type="cost_config",
+        entity_id=COST_CONFIG_ID,
+        payload=payload.model_dump(mode="json"),
+    )
     await session.commit()
     await session.refresh(config)
     return config
