@@ -139,3 +139,70 @@ export interface ModelInfo {
   description: string;
   params_schema: { properties?: Record<string, Record<string, unknown>> };
 }
+
+export interface OrderSummary {
+  id: number;
+  number: number;
+  channel: string;
+  status: string;
+  total: string;
+  customer_id: number | null;
+  promised_date: string | null;
+  local_delivery: boolean;
+  created_at: string;
+  progress: string;
+  next_step: string | null;
+}
+
+export interface OrderItem {
+  id: number;
+  title: string;
+  sku: string | null;
+  quantity: number;
+  unit_price: string;
+  personalization: Record<string, unknown>;
+  material_ids: number[];
+  needs_sample: boolean;
+  produced: number;
+}
+
+export interface PrintJob {
+  id: number;
+  order_item_id: number;
+  quantity: number;
+  is_sample: boolean;
+  status: string;
+  material_key: string;
+  due_date: string | null;
+  failure_reason: string | null;
+}
+
+export interface OrderDetail extends OrderSummary {
+  subtotal: string;
+  shipping: string;
+  discount: string;
+  sample_rounds: number;
+  notes: string | null;
+  items: OrderItem[];
+  events: { created_at: string; status: string; note: string | null; media_url: string | null; actor: string }[];
+  jobs: PrintJob[];
+  allowed: string[];
+  customer: { id: number; name: string; whatsapp: string | null } | null;
+}
+
+export interface QueueGroup {
+  material_key: string;
+  materials: string[];
+  total_pieces: number;
+  jobs: {
+    job_id: number;
+    status: string;
+    order_id: number;
+    order_number: number;
+    title: string;
+    quantity: number;
+    is_sample: boolean;
+    due_date: string | null;
+    personalization: Record<string, unknown>;
+  }[];
+}

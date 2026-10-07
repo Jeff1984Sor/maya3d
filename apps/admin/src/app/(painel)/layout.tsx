@@ -5,12 +5,17 @@ import { signOut } from "../login/actions";
 
 const TOOLS = [
   { href: "/", label: "Visão geral" },
+  { href: "/producao", label: "Produção" },
+  { href: "/pedidos", label: "Pedidos" },
+  { href: "/fila", label: "Fila de impressão" },
   { href: "/produtos", label: "Produtos" },
   { href: "/parametricos", label: "Paramétricos" },
   { href: "/calculadora", label: "Calculadora de preço" },
   { href: "/guardiao", label: "Guardião" },
   { href: "/auditoria", label: "Auditoria" },
   { href: "/custos", label: "Custos" },
+  { href: "/operacao", label: "Operação" },
+  { href: "/mensagens", label: "Caixa de saída" },
 ];
 
 export default async function PainelLayout({ children }: { children: React.ReactNode }) {
