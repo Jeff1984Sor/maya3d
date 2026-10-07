@@ -1,11 +1,20 @@
 """Contratos de IA. Implementações concretas (Claude, Gemini) entram na Fase 2."""
 
 from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import Protocol, TypeVar, runtime_checkable
 
 from pydantic import BaseModel
 
 T = TypeVar("T", bound=BaseModel)
+
+
+@dataclass(frozen=True)
+class ImageInput:
+    """Imagem enviada junto do pedido (Guardião visual). media_type: image/webp, image/png..."""
+
+    data: bytes
+    media_type: str = "image/webp"
 
 
 @runtime_checkable

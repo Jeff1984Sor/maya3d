@@ -1,8 +1,10 @@
 """Provedor OpenAI (SDK oficial `openai`). Saída validada por Pydantic via
 `chat.completions.parse(response_format=Schema)`; mesmo contrato do ClaudeProvider."""
 
+import base64
 import logging
 import time
+from collections.abc import Sequence
 from typing import Any, TypeVar
 
 import openai
@@ -10,6 +12,7 @@ from pydantic import BaseModel, ValidationError
 
 from print3d_ai.claude import AINotConfiguredError, AIOutputError, AIRefusedError
 from print3d_ai.config import AISettings
+from print3d_ai.providers import ImageInput
 
 T = TypeVar("T", bound=BaseModel)
 log = logging.getLogger("print3d.ai")
@@ -28,11 +31,30 @@ class OpenAIProvider:
         return sorted(m.id for m in page.data)
 
     async def complete_json(
-        self, *, system: str, prompt: str, schema: type[T], model: str, max_tokens: int = 8000
+        self,
+        *,
+        system: str,
+        prompt: str,
+        schema: type[T],
+        model: str,
+        max_tokens: int = 8000,
+        images: Sequence[ImageInput] = (),
     ) -> T:
+        user: Any = prompt
+        if images:
+            user = [{"type": "text", "text": prompt}] + [
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:{img.media_type};base64,"
+                        + base64.standard_b64encode(img.data).decode()
+                    },
+                }
+                for img in images
+            ]
         messages: list[Any] = [
             {"role": "system", "content": system},
-            {"role": "user", "content": prompt},
+            {"role": "user", "content": user},
         ]
         for attempt in (1, 2):
             started = time.perf_counter()

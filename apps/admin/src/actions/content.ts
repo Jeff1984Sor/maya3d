@@ -27,7 +27,16 @@ export type Layout = {
   sections: Section[];
 };
 export type Page = { slug: string; title: string; body: string; published: boolean; in_footer: boolean; position: number };
-export type ProductImage = { id: number; key: string; thumb_key: string; alt: string | null; position: number };
+export type VisualFinding = { kind: string; description: string; confidence: number };
+export type ProductImage = {
+  id: number;
+  key: string;
+  thumb_key: string;
+  alt: string | null;
+  position: number;
+  visual_status: "pendente" | "ok" | "alerta" | "bloqueado" | "liberado" | "erro";
+  visual_notes: { summary?: string; findings?: VisualFinding[]; released_reason?: string };
+};
 
 
 const msg = (e: unknown, f: string) => (e instanceof AdminApiError ? e.message : f);
@@ -182,4 +191,29 @@ export async function imageAction(productId: number, imageId: number, action: "c
   }
   revalidatePath(back);
   go(back, "ok", action === "delete" ? "Foto removida." : "Capa definida.");
+}
+
+// --- Guardião visual ------------------------------------------------------------------------
+export async function runVisualCheck(productId: number): Promise<void> {
+  await requireSession();
+  const back = `/produtos/${productId}`;
+  try {
+    await api.post(`/products/${productId}/images/visual-check`, {});
+  } catch (e) {
+    go(back, "erro", msg(e, "Falha ao verificar as fotos."));
+  }
+  revalidatePath(back);
+  go(back, "ok", "Fotos verificadas pelo Guardião visual.");
+}
+
+export async function releaseImage(productId: number, imageId: number, form: FormData): Promise<void> {
+  await requireSession();
+  const back = `/produtos/${productId}`;
+  try {
+    await api.post(`/products/${productId}/images/${imageId}/release`, { reason: t(form, "reason") });
+  } catch (e) {
+    go(back, "erro", msg(e, "Explique o motivo (mín. 5 letras)."));
+  }
+  revalidatePath(back);
+  go(back, "ok", "Foto liberada. Ficou registrado na auditoria.");
 }

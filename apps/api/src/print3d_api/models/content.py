@@ -22,6 +22,9 @@ class ProductImage(IdMixin, TimestampMixin, Base):
     thumb_key: Mapped[str] = mapped_column(String(200))
     alt: Mapped[str | None] = mapped_column(String(200))
     position: Mapped[int] = mapped_column(Integer, default=0)  # 0 = capa
+    # Guardião visual: pendente | ok | alerta | bloqueado | liberado (dono assumiu) | erro
+    visual_status: Mapped[str] = mapped_column(String(20), default="pendente")
+    visual_notes: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
 
 
 class StoreLayout(TimestampMixin, Base):

@@ -1,6 +1,6 @@
 from print3d_ai.claude import AINotConfiguredError, AIOutputError, AIRefusedError, ClaudeProvider
 from print3d_ai.config import AISettings, AITask
-from print3d_ai.providers import EmbeddingProvider, LLMProvider
+from print3d_ai.providers import EmbeddingProvider, ImageInput, LLMProvider
 
 __all__ = [
     "AINotConfiguredError",
@@ -10,5 +10,6 @@ __all__ = [
     "AITask",
     "ClaudeProvider",
     "EmbeddingProvider",
+    "ImageInput",
     "LLMProvider",
 ]

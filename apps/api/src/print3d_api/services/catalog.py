@@ -10,7 +10,7 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from print3d_api.models import Design, PackagingBox, Printer, Product, Variant
+from print3d_api.models import Design, PackagingBox, Printer, Product, ProductImage, Variant
 from print3d_api.schemas.catalog import (
     ProductCreate,
     ProductPatch,
@@ -74,13 +74,29 @@ async def apply_guardian(session: AsyncSession, product: Product, design: Design
     )
     product.guardian_status = decision.verdict
     product.guardian_reason = None if decision.approved else decision.reason
+    blocked_photos = (
+        await session.scalars(
+            select(ProductImage.visual_notes).where(
+                ProductImage.product_id == product.id, ProductImage.visual_status == "bloqueado"
+            )
+        )
+    ).all()
+    if blocked_photos:  # foto com personagem/marca de terceiro bloqueia mesmo com texto limpo
+        seen = "; ".join(str(n.get("summary", "")) for n in blocked_photos if n)[:300]
+        product.guardian_status = "bloqueado"
+        product.guardian_reason = "; ".join(
+            x
+            for x in (product.guardian_reason, f"Guardião visual: {seen or 'foto bloqueada'}")
+            if x
+        )
+    approved = product.guardian_status == "aprovado"
     product.disclaimers = list(decision.disclaimers)
     product.age_rating = decision.age_rating
     product.attribution_required = decision.attribution_required
     design.ip_status = decision.verdict
     design.ip_reason = product.guardian_reason
     design.attribution_required = decision.attribution_required
-    if not decision.approved and product.status == "ativo":
+    if not approved and product.status == "ativo":
         product.status = "pausado"  # bloqueio novo derruba produto ativo
     await audit.record(
         session,
@@ -88,8 +104,8 @@ async def apply_guardian(session: AsyncSession, product: Product, design: Design
         action="produto_verificado",
         entity_type="product",
         entity_id=product.id,
-        decision=decision.verdict,
-        reason=decision.reason,
+        decision=product.guardian_status,
+        reason=product.guardian_reason,
         payload={"titulo": product.title, "violacoes": [asdict(v) for v in decision.violations]},
     )
 

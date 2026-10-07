@@ -3,20 +3,30 @@
 import re
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    HTTPException,
+    Request,
+    UploadFile,
+    status,
+)
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from print3d_ai import AINotConfiguredError
 from print3d_api.db.session import get_session
-from print3d_api.deps import get_storage
+from print3d_api.deps import get_ai_factory, get_storage
 from print3d_api.models import BrandSettings, StorePage
 from print3d_api.models.brand import SINGLETON_ID
-from print3d_api.services import audit, content, media
+from print3d_api.services import ai, audit, content, media, visual
 from print3d_core.storage import LocalStorage
 
 router = APIRouter(tags=["admin: loja e marca"])
 Session = Annotated[AsyncSession, Depends(get_session)]
 Storage = Annotated[LocalStorage, Depends(get_storage)]
+AIFactory = Annotated[ai.ProviderFactory, Depends(get_ai_factory)]
 TOKENS = ("bg", "surface", "ink", "muted", "primary", "secondary", "border")
 HEX = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
 SLUG = re.compile(r"^[a-z0-9-]{2,80}$")
@@ -134,6 +144,12 @@ class ImageOut(BaseModel):
     thumb_key: str
     alt: str | None
     position: int
+    visual_status: str
+    visual_notes: dict[str, Any]
+
+
+class ReleaseIn(BaseModel):
+    reason: str = Field(min_length=5, max_length=300)
 
 
 @router.get("/products/{product_id}/images", response_model=list[ImageOut])
@@ -143,12 +159,52 @@ async def list_images(product_id: int, session: Session) -> list[Any]:
 
 @router.post("/products/{product_id}/images", response_model=ImageOut, status_code=201)
 async def upload_image(
-    product_id: int, file: UploadFile, session: Session, storage: Storage
+    product_id: int,
+    file: UploadFile,
+    request: Request,
+    background: BackgroundTasks,
+    session: Session,
+    storage: Storage,
+    factory: AIFactory,
 ) -> Any:
     try:
-        return await content.add_image(session, storage, product_id, await _read(file))
+        image = await content.add_image(session, storage, product_id, await _read(file))
     except content.ContentError as exc:
         raise _http(exc) from exc
+    # Guardião visual analisa depois de responder (se a IA estiver configurada)
+    background.add_task(
+        visual.check_in_background,
+        request.app.state.session_factory,
+        factory,
+        storage,
+        product_id,
+    )
+    return image
+
+
+@router.post("/products/{product_id}/images/visual-check", response_model=list[ImageOut])
+async def visual_check(
+    product_id: int, session: Session, storage: Storage, factory: AIFactory
+) -> list[Any]:
+    """Analisa (de novo) todas as fotos com o Guardião visual."""
+    try:
+        return await visual.check_images(session, factory, storage, product_id)
+    except visual.VisualError as exc:
+        code = status.HTTP_404_NOT_FOUND if exc.not_found else status.HTTP_422_UNPROCESSABLE_ENTITY
+        raise HTTPException(code, str(exc)) from exc
+    except AINotConfiguredError as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
+
+
+@router.post("/products/{product_id}/images/{image_id}/release", status_code=204)
+async def release_image(
+    product_id: int, image_id: int, payload: ReleaseIn, session: Session
+) -> None:
+    """O dono assume a foto (é dele / tem licença). Fica na auditoria com o motivo."""
+    try:
+        await visual.release(session, product_id, image_id, payload.reason)
+    except visual.VisualError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
 
 
 @router.delete("/products/{product_id}/images/{image_id}", status_code=204)

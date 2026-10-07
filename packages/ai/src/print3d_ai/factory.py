@@ -1,5 +1,6 @@
 """Escolhe o provedor pela configuração (AI_PROVIDER): trocar de fornecedor sem mudar código."""
 
+from collections.abc import Sequence
 from typing import Protocol, TypeVar
 
 from pydantic import BaseModel
@@ -7,6 +8,7 @@ from pydantic import BaseModel
 from print3d_ai.claude import AINotConfiguredError, ClaudeProvider
 from print3d_ai.config import AISettings
 from print3d_ai.openai_provider import OpenAIProvider
+from print3d_ai.providers import ImageInput
 
 T = TypeVar("T", bound=BaseModel)
 PROVIDERS = ("claude", "openai")
@@ -14,7 +16,14 @@ PROVIDERS = ("claude", "openai")
 
 class ChatProvider(Protocol):
     async def complete_json(
-        self, *, system: str, prompt: str, schema: type[T], model: str, max_tokens: int = 8000
+        self,
+        *,
+        system: str,
+        prompt: str,
+        schema: type[T],
+        model: str,
+        max_tokens: int = 8000,
+        images: Sequence[ImageInput] = (),
     ) -> T: ...
 
     async def list_models(self) -> list[str]: ...

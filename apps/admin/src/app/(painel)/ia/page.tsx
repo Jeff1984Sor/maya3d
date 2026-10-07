@@ -17,7 +17,7 @@ type Status = {
 
 const TASKS = [
   { key: "default", label: "Tarefas do dia a dia", hint: "✨ Enriquecer, Redator, sugestões" },
-  { key: "guardian", label: "Guardião visual", hint: "análise de imagens; use um modelo forte" },
+  { key: "guardian", label: "Guardião visual", hint: "olha as fotos dos produtos (personagens, marcas); precisa enxergar imagens" },
   { key: "personalizer", label: "Personalizador e assistente da loja", hint: "conversa com o cliente; vazio = usa o do dia a dia" },
   { key: "embedding", label: "Busca semântica (embeddings)", hint: "busca por significado na loja e no assistente (OpenAI)" },
 ];

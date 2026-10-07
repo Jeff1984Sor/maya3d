@@ -3,14 +3,17 @@
 JSON respeita o schema mas falha em regras extras do modelo Pydantic (limites, padrões).
 """
 
+import base64
 import logging
 import time
+from collections.abc import Sequence
 from typing import Any, TypeVar
 
 import anthropic
 from pydantic import BaseModel, ValidationError
 
 from print3d_ai.config import AISettings
+from print3d_ai.providers import ImageInput
 
 T = TypeVar("T", bound=BaseModel)
 log = logging.getLogger("print3d.ai")
@@ -42,9 +45,29 @@ class ClaudeProvider:
         return sorted(m.id for m in page.data)
 
     async def complete_json(
-        self, *, system: str, prompt: str, schema: type[T], model: str, max_tokens: int = 8000
+        self,
+        *,
+        system: str,
+        prompt: str,
+        schema: type[T],
+        model: str,
+        max_tokens: int = 8000,
+        images: Sequence[ImageInput] = (),
     ) -> T:
-        messages: list[Any] = [{"role": "user", "content": prompt}]
+        content: Any = prompt
+        if images:
+            content = [
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": img.media_type,
+                        "data": base64.standard_b64encode(img.data).decode(),
+                    },
+                }
+                for img in images
+            ] + [{"type": "text", "text": prompt}]
+        messages: list[Any] = [{"role": "user", "content": content}]
         for attempt in (1, 2):
             started = time.perf_counter()
             response = await self._client.messages.parse(
