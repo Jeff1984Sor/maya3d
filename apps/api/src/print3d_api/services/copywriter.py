@@ -154,9 +154,9 @@ async def generate(
     for item in result.items:
         if item.channel not in wanted or any(r.channel == item.channel for r in out):
             continue
-        row = existing.get(item.channel) or ChannelCopy(product_id=product.id, channel=item.channel)
-        if row.id is None:
-            session.add(row)
+        row = existing.get(item.channel) or ChannelCopy(
+            product_id=product.id, channel=item.channel, guardian_status="pendente", issues=[]
+        )
         row.title = _fit_title(item.title, channel_copy.PROFILES[item.channel].title_max)
         row.description = item.description.strip()
         row.bullets = [b.strip() for b in item.bullets if b.strip()]
@@ -169,6 +169,8 @@ async def generate(
         row.status = "rascunho"
         row.model = model
         row.prompt_version = channel_copy.VERSION
+        if row.id is None:
+            session.add(row)
         await _check(session, product, row, facts)
         out.append(row)
     await audit.record(

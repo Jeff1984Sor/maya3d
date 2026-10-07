@@ -49,8 +49,10 @@ def mesh_report(mesh: trimesh.Trimesh) -> MeshReport:
         issues.append("malha aberta: precisa de reparo antes de fatiar")
     if not mesh.is_winding_consistent:
         issues.append("normais inconsistentes")
-    if min(x, y, z) < _TINY_MM:
-        issues.append("peça com dimensão < 1 mm: confira a unidade de exportação")
+    # Peça inteira minúscula = exportada em metros/cm. (Uma dimensão fina sozinha é normal:
+    # relevo de texto de 0,8 mm, por exemplo.)
+    if max(x, y, z) < _TINY_MM:
+        issues.append("peça com todas as dimensões < 1 mm: confira a unidade de exportação")
     if max(x, y, z) > _HUGE_MM:
         issues.append("peça com mais de 2 m: provável unidade errada (polegadas/cm)")
     # Volume só é confiável em malha fechada.

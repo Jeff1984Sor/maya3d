@@ -67,3 +67,20 @@ def test_margem_por_categoria() -> None:
     assert margin_for(config, "caixas") == D("0.55")
     assert margin_for(config, "outra") == D("0.40")
     assert margin_for(config, None) == D("0.40")
+
+
+def test_integracoes_sobrepoem_com_o_tipo_certo() -> None:
+    from pydantic import SecretStr
+
+    from print3d_api.services.integrations import _overlay
+    from print3d_notify.meta import WhatsAppSettings
+
+    wa = _overlay(
+        WhatsAppSettings(),
+        {"WHATSAPP_VERIFY_TOKEN": "v", "WHATSAPP_TOKEN": "t", "WHATSAPP_GRAPH_VERSION": "v1"},
+        "WHATSAPP_",
+    )
+    assert isinstance(wa.verify_token, SecretStr)
+    assert wa.verify_token.get_secret_value() == "v"
+    assert isinstance(wa.token, SecretStr)
+    assert wa.graph_version == "v1"

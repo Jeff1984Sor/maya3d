@@ -107,12 +107,15 @@ async def load(session: AsyncSession) -> dict[str, str]:
 
 
 def _overlay(base: Any, values: dict[str, str], prefix: str) -> Any:
+    """Põe os valores do painel por cima; campo SecretStr no destino recebe SecretStr
+    (vale pelo tipo do campo, não por ser segredo na tela — ex.: token de verificação)."""
+    fields = type(base).model_fields
     update: dict[str, Any] = {}
     for key, value in values.items():
-        if not key.startswith(prefix):
+        name = key.removeprefix(prefix).lower()
+        if not key.startswith(prefix) or name not in fields:
             continue
-        field = key.removeprefix(prefix).lower()
-        update[field] = SecretStr(value) if BY_KEY[key].secret else value
+        update[name] = SecretStr(value) if "SecretStr" in str(fields[name].annotation) else value
     return base.model_copy(update=update) if update else base
 
 

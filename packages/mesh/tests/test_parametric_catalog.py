@@ -87,7 +87,7 @@ CASES = [
     ("placa-nome", {"line1": "Sala da Ana", "line2": "Nutricionista", "mount": "pe"}),
     ("placa-nome", {"line1": "Escritório", "shape": "oval", "frame": False}),
     ("lembrancinha-tag", {"name": "Helena", "detail": "1 aninho", "shape": "coracao"}),
-    ("lembrancinha-tag", {"name": "Theo", "shape": "estrela"}),
+    ("lembrancinha-tag", {"name": "Theo", "shape": "estrela", "detail": None}),
     ("lembrancinha-tag", {"name": "Bento", "detail": "batizado", "shape": "circulo"}),
     ("suporte-celular", {}),
     ("suporte-celular", {"angle_deg": 75, "cable_slot": False, "phone_mm": 9}),
