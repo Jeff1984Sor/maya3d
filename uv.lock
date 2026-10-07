@@ -1088,6 +1088,23 @@ wheels = [
 ]
 
 [[package]]
+name = "openai"
+version = "3.26.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "httpx2" },
+    { name = "jiter" },
+    { name = "pydantic" },
+    { name = "sniffio" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b4/07/cd478a4595282ac72e31090531bb37f8a1b6fd9cb45c1da6d6215078a4d9/openai-3.26.0.tar.gz", hash = "sha256:73b470c09cf2171dce930e36af01c6632241adda0120ad84302ad229f9130a5a", size = 1820994, upload-time = "2026-10-06T21:31:19.019Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fd/37/08c6d71d542b079364221fcbaee863ead900b53cd89db17f4bd0ec83f41a/openai-3.26.0-py3-none-any.whl", hash = "sha256:050597ff71ff4025177405a41fa4019d4f9feae5826645b63b8e35b6e9a3c88b", size = 2164504, upload-time = "2026-10-06T21:31:16.415Z" },
+]
+
+[[package]]
 name = "opentelemetry-api"
 version = "1.45.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1141,6 +1158,7 @@ version = "0.1.0"
 source = { editable = "packages/ai" }
 dependencies = [
     { name = "anthropic" },
+    { name = "openai" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
 ]
@@ -1148,6 +1166,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "anthropic", specifier = ">=0.70" },
+    { name = "openai", specifier = ">=1.50" },
     { name = "pydantic", specifier = ">=2.10" },
     { name = "pydantic-settings", specifier = ">=2.7" },
 ]
@@ -1161,6 +1180,7 @@ dependencies = [
     { name = "arq" },
     { name = "fastapi" },
     { name = "pgvector" },
+    { name = "print3d-ai" },
     { name = "print3d-core" },
     { name = "print3d-mesh" },
     { name = "psycopg", extra = ["binary"] },
@@ -1178,6 +1198,7 @@ requires-dist = [
     { name = "arq", specifier = ">=0.26" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "pgvector", specifier = ">=0.3" },
+    { name = "print3d-ai", editable = "packages/ai" },
     { name = "print3d-core", editable = "packages/core" },
     { name = "print3d-mesh", editable = "packages/mesh" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },

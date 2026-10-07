@@ -3,7 +3,7 @@ name = "print3d-ai"
 version = "0.1.0"
 description = "Camada de IA: LLMProvider, EmbeddingProvider, config de modelos por tarefa"
 requires-python = ">=3.12"
-dependencies = ["pydantic>=2.10", "pydantic-settings>=2.7", "anthropic>=0.70"]
+dependencies = ["pydantic>=2.10", "pydantic-settings>=2.7", "anthropic>=0.70", "openai>=1.50"]
 
 [build-system]
 requires = ["hatchling"]

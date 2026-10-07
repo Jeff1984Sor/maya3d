@@ -15,15 +15,17 @@ export function ProductForm({
   product,
   action,
   submitLabel,
+  id,
 }: {
   niches: Niche[];
   product?: ProductDetail;
   action: (form: FormData) => Promise<void>;
   submitLabel: string;
+  id?: string;
 }) {
   const d = product?.design;
   return (
-    <form action={action} className="grid gap-4 sm:grid-cols-2">
+    <form id={id} action={action} className="grid gap-4 sm:grid-cols-2">
       <div className="sm:col-span-2">
         <Label label="Título público *">
           <input name="title" required defaultValue={product?.title} className={inputClass} />

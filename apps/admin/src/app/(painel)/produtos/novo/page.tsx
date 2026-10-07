@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { createProduct } from "@/actions/products";
+import { EnrichPanel } from "@/components/enrich-panel";
 import { Flash } from "@/components/flash";
 import { ProductForm } from "@/components/product-form";
 import { Card, PageHeader } from "@/components/ui";
@@ -20,7 +21,8 @@ export default async function NovoProdutoPage({ searchParams }: { searchParams: 
       </PageHeader>
       <Flash {...await searchParams} />
       <Card>
-        <ProductForm niches={niches} action={createProduct} submitLabel="Criar produto" />
+        <EnrichPanel formId="product-form" />
+        <ProductForm id="product-form" niches={niches} action={createProduct} submitLabel="Criar produto" />
       </Card>
     </>
   );
