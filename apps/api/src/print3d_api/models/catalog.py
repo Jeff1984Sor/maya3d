@@ -49,7 +49,12 @@ class Product(IdMixin, TimestampMixin, Base):
     # material mínimo por uso (ex.: ASA para painel de carro). Sem impressora capaz → indisponível.
     min_material: Mapped[str | None] = mapped_column(String(20))
     customizable: Mapped[bool] = mapped_column(Boolean, default=False)
-    status: Mapped[str] = mapped_column(String(20), default="rascunho")
+    status: Mapped[str] = mapped_column(String(20), default="rascunho")  # rascunho|ativo|pausado
+    # Resultado do Guardião, recalculado a cada salvamento (aprovado | bloqueado | pendente).
+    guardian_status: Mapped[str] = mapped_column(String(20), default="pendente")
+    guardian_reason: Mapped[str | None] = mapped_column(Text)
+    disclaimers: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    attribution_required: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class Variant(IdMixin, TimestampMixin, Base):

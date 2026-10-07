@@ -69,6 +69,10 @@ jobs:
         run: uv run mypy apps/api/src apps/worker/src packages/core/src packages/ai/src packages/channels/src packages/notify/src packages/mesh/src packages/social/src
       - name: Testes
         run: uv run pytest
+      - name: Falhas como anotações (legíveis pela API pública do GitHub)
+        if: failure()
+        run: |
+          uv run pytest --lf -q --tb=line -p no:randomly 2>&1 | grep -E "^(FAILED|ERROR)|Error|assert"             | head -30 | while IFS= read -r line; do echo "::error::${line}"; done
       - name: Modelos e migrações em sincronia (alembic check)
         working-directory: apps/api
         run: uv run alembic upgrade head && uv run alembic check

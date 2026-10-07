@@ -11,7 +11,7 @@ from print3d_api.models import (
     PackagingBox,
     Printer,
 )
-from print3d_api.routes.admin import costs, guardian, mesh, parametric, pricing
+from print3d_api.routes.admin import costs, guardian, mesh, parametric, pricing, products
 from print3d_api.routes.admin.crud import crud_router
 from print3d_api.schemas.admin import (
     FeeBandIn,
@@ -110,3 +110,4 @@ router.include_router(pricing.router)
 router.include_router(mesh.router)
 router.include_router(guardian.router)
 router.include_router(parametric.router)
+router.include_router(products.router)

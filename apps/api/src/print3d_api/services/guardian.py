@@ -41,21 +41,21 @@ def to_grant(lic: License) -> LicenseGrant:
     )
 
 
-async def check(session: AsyncSession, req: GuardianCheckIn) -> GuardianCheckOut:
+async def decide(session: AsyncSession, req: GuardianCheckIn) -> Decision:
+    """Decisão do Guardião com regras do admin e licenças vigentes (sem gravar nada)."""
     niche = await session.scalar(select(Niche).where(Niche.slug == req.niche, Niche.active))
     if niche is None:
         raise UnknownNicheError(f"nicho '{req.niche}' não existe ou está inativo")
-
     overrides = (await session.scalars(select(GuardianTermOverride))).all()
     licenses = (await session.scalars(select(License).where(License.active))).all()
-    decision: Decision = evaluate(
-        GuardianInput(
-            **req.model_dump(),
-            licenses=[to_grant(lic) for lic in licenses],
-        ),
+    return evaluate(
+        GuardianInput(**req.model_dump(), licenses=[to_grant(lic) for lic in licenses]),
         build_ruleset(overrides),
     )
 
+
+async def check(session: AsyncSession, req: GuardianCheckIn) -> GuardianCheckOut:
+    decision = await decide(session, req)
     entry = await audit.record(
         session,
         actor="guardiao",
