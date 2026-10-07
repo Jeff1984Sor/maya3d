@@ -44,6 +44,7 @@ class PaymentState:
     status: str  # approved | pending | in_process | rejected | cancelled | refunded ...
     amount: Decimal
     external_reference: str | None
+    fee: Decimal = Decimal(0)  # taxa cobrada pelo Mercado Pago (fee_details do pagamento)
 
     @property
     def paid(self) -> bool:
@@ -146,4 +147,12 @@ class MercadoPago:
             status=str(data.get("status", "")),
             amount=Decimal(str(data.get("transaction_amount", 0))),
             external_reference=data.get("external_reference"),
+            fee=sum(
+                (
+                    Decimal(str(f.get("amount", 0)))
+                    for f in data.get("fee_details") or []
+                    if f.get("type") == "mercadopago_fee"
+                ),
+                Decimal(0),
+            ),
         )

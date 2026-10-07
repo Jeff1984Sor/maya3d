@@ -52,7 +52,14 @@ class FakeMP:
         )
 
     async def payment(self, payment_id: str) -> PaymentState:
-        return PaymentState(payment_id, self.status, self.amount or Decimal(0), None)
+        amount = self.amount or Decimal(0)
+        return PaymentState(
+            payment_id,
+            self.status,
+            amount,
+            None,
+            (amount * Decimal("0.0099")).quantize(Decimal("0.01")),
+        )
 
 
 @pytest.fixture
@@ -127,6 +134,9 @@ def test_pix_automatico_aprova_e_vai_para_producao(
     assert tracking["status"] in ("na_fila", "imprimindo_amostra")
     assert tracking["pix"] is None
     assert client.post("/v1/admin/payments/check", headers=H).json() == {"approved": 0}
+    bands = client.get("/v1/admin/channel-fees", headers=H).json()
+    pix = next(b for b in bands if b["channel"] == "site_pix")
+    assert pix["source"] == "manual"  # a do dono (vitrine de teste) não é sobrescrita
 
 
 def test_valor_divergente_nao_libera(client: TestClient, mp: FakeMP, store_catalog: Any) -> None:

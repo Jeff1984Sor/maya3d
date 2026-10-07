@@ -57,11 +57,19 @@ async def test_cria_pix_com_idempotencia() -> None:
 
 
 async def test_consulta_e_erros() -> None:
-    mp = MercadoPago(
-        "t", client=_client(200, {"id": 9, "status": "approved", "transaction_amount": 10}, [])
-    )
+    body = {
+        "id": 9,
+        "status": "approved",
+        "transaction_amount": 100,
+        "fee_details": [
+            {"type": "mercadopago_fee", "amount": 0.99, "fee_payer": "collector"},
+            {"type": "financing_fee", "amount": 5},
+        ],
+    }
+    mp = MercadoPago("t", client=_client(200, body, []))
     state = await mp.payment("9")
     assert state.paid
+    assert state.fee == Decimal("0.99")
     with pytest.raises(MercadoPagoError):
         await mp.payment("../x")
     bad = MercadoPago("t", client=_client(401, {"message": "invalid"}, []))

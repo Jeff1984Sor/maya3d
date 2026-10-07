@@ -9,12 +9,13 @@
 import asyncio
 import logging
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from print3d_api.models import Customer, Order, Payment
+from print3d_api.models import ChannelFeeBand, Customer, Order, Payment
 from print3d_api.services import audit, integrations, notifications, orders
 from print3d_channels.mercadopago import MercadoPago, MercadoPagoError, PaymentState
 from print3d_core.orders import OrderStatus
@@ -121,6 +122,7 @@ async def apply_state(session: AsyncSession, payment: Payment, state: PaymentSta
         await session.commit()
         return False
     payment.paid_at = datetime.now(UTC)
+    await learn_fee(session, payment, state)
     await audit.record(
         session,
         actor="mercadopago",
@@ -189,3 +191,28 @@ async def run_poller(factory: async_sessionmaker[AsyncSession], interval: float 
 
 async def webhook_secret(session: AsyncSession) -> str | None:
     return (await _settings(session))["MP_WEBHOOK_SECRET"]
+
+
+async def learn_fee(session: AsyncSession, payment: Payment, state: PaymentState) -> None:
+    """A taxa real do Pix vem de cada pagamento aprovado: atualiza a tarifa "site_pix" usada
+    no preço da loja (fonte "api"). Taxa cadastrada à mão pelo dono não é sobrescrita."""
+    if state.amount <= 0 or payment.method != "pix":
+        return
+    rate = (state.fee / state.amount).quantize(Decimal("0.0001"))
+    band = await session.scalar(
+        select(ChannelFeeBand).where(
+            ChannelFeeBand.channel == "site_pix", ChannelFeeBand.category.is_(None)
+        )
+    )
+    if band is None:
+        session.add(
+            ChannelFeeBand(
+                channel="site_pix",
+                commission_rate=rate,
+                source="api",
+                notes=f"taxa real do Mercado Pago (pagamento {payment.external_id})",
+            )
+        )
+    elif band.source == "api" and band.commission_rate != rate:
+        band.commission_rate = rate
+        band.notes = f"taxa real do Mercado Pago (pagamento {payment.external_id})"
