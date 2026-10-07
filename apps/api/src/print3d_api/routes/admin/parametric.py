@@ -21,7 +21,6 @@ Session = Annotated[AsyncSession, Depends(get_session)]
 Queue = Annotated[ArqRedis, Depends(get_queue)]
 
 # Parâmetros de texto livre que o cliente digita: passam pelo Guardião (palavrão, marca, time...).
-TEXT_PARAMS = ("letter", "name", "lid_text")
 
 
 class ModelInfo(BaseModel):
@@ -74,7 +73,7 @@ async def generate(
             status.HTTP_422_UNPROCESSABLE_ENTITY, exc.errors(include_url=False)
         ) from exc
 
-    texts = [str(v) for k in TEXT_PARAMS if (v := getattr(parsed, k, None))]
+    texts = [str(v) for k in model.text_fields if (v := getattr(parsed, k, None))]
     if texts:
         verdict = await guardian.check(
             session,

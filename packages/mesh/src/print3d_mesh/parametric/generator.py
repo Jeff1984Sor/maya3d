@@ -10,11 +10,22 @@ from print3d_mesh.analysis import mesh_report
 from print3d_mesh.contracts import MeshReport
 from print3d_mesh.parametric.base import ParametricModel
 from print3d_mesh.parametric.box import ParametricBox
+from print3d_mesh.parametric.cross import CrossWithName
 from print3d_mesh.parametric.keychain import KeychainLetterName
 from print3d_mesh.parametric.openscad import OpenScadRunner
+from print3d_mesh.parametric.plaque import PartyTag, PlaqueWithName
+from print3d_mesh.parametric.stand import PhoneStand
 
 MODELS: dict[str, ParametricModel[Any]] = {
-    m.slug: m for m in (KeychainLetterName(), ParametricBox())
+    m.slug: m
+    for m in (
+        KeychainLetterName(),
+        ParametricBox(),
+        CrossWithName(),
+        PlaqueWithName(),
+        PartyTag(),
+        PhoneStand(),
+    )
 }
 
 

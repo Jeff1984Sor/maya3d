@@ -14,6 +14,8 @@ class ParametricModel[P: BaseModel](ABC):
     niche: ClassVar[str]
     description: ClassVar[str]
     params_model: ClassVar[type[BaseModel]]
+    # Campos que o cliente escreve (nome, frase): passam pelo Guardião antes de gerar.
+    text_fields: ClassVar[tuple[str, ...]] = ()
 
     @abstractmethod
     def parts(self, params: P) -> list[str]:

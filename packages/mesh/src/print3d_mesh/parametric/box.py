@@ -80,6 +80,7 @@ class ParametricBox(ParametricModel[BoxParams]):
     niche = "caixas"
     description = "Caixa com medidas internas, tampa de encaixe, divisórias e texto na tampa."
     params_model = BoxParams
+    text_fields = ("lid_text",)
 
     def parts(self, params: BoxParams) -> list[str]:
         return ["caixa"] if params.lid == "sem_tampa" else ["caixa", "tampa"]

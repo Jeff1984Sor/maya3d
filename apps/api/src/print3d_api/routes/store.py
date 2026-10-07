@@ -185,7 +185,7 @@ async def preview(
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY, exc.errors(include_url=False)
         ) from exc
-    texts = [str(v) for k in ("letter", "name", "lid_text") if (v := getattr(parsed, k, None))]
+    texts = [str(v) for k in model.text_fields if (v := getattr(parsed, k, None))]
     if texts:
         decision = await guardian.decide(
             session,

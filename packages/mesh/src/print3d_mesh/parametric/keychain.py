@@ -70,6 +70,7 @@ class KeychainLetterName(ParametricModel[KeychainParams]):
     niche = "chaveiros"
     description = "Letra grande com o nome em relevo por cima, em duas cores."
     params_model = KeychainParams
+    text_fields = ("letter", "name")
 
     def parts(self, params: KeychainParams) -> list[str]:
         return ["base", "nome"]
