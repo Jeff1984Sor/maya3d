@@ -187,3 +187,30 @@ def test_analise_rejeita_formato(client: TestClient) -> None:
         "/v1/admin/mesh/analyze", files={"file": ("x.step", b"x", "application/step")}, headers=H
     )
     assert res.status_code == 415
+
+
+def test_comparativo_de_materiais(client: TestClient) -> None:
+    pla = _material(client, kind="PLA", color_name="Branco", price_per_kg="100")
+    _material(client, kind="PETG", color_name="Preto", color_hex="#000000", price_per_kg="120")
+    _material(client, kind="ASA", color_name="Cinza", color_hex="#888888", price_per_kg="150")
+    pid = _printer(client)  # imprime PLA e PETG, não é fechada
+    client.post(
+        "/v1/admin/channel-fees",
+        json={"channel": "site_pix", "commission_rate": "0.0099"},
+        headers=H,
+    )
+    res = client.post(
+        "/v1/admin/pricing/compare",
+        json={"reference_material_id": pla, "grams": "50", "print_minutes": 120, "printer_id": pid},
+        headers=H,
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["reference"] == "PLA Branco"
+    grams = {r["kind"]: D(r["grams"]) for r in body["rows"]}
+    assert grams == {"PLA": D("50.0"), "PETG": D("51.2"), "ASA": D("43.1")}
+    totals = [D(r["cost"]["total"]) for r in body["rows"]]
+    assert totals == sorted(totals)  # do mais barato ao mais caro
+    asa = next(r for r in body["rows"] if r["kind"] == "ASA")
+    assert any("fechada" in w for w in asa["warnings"])
+    assert all(r["best_price"] is not None for r in body["rows"])

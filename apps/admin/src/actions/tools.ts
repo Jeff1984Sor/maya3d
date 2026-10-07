@@ -68,3 +68,41 @@ export async function runGuardian(_prev: ToolState<GuardianResult>, form: FormDa
     return { error: messageOf(error) };
   }
 }
+
+export type CompareResult = {
+  reference: string;
+  reference_grams: string;
+  rows: {
+    material_id: number;
+    label: string;
+    kind: string;
+    color_hex: string;
+    density: string;
+    grams: string;
+    cost: QuoteResponse["cost"];
+    quotes: QuoteResponse["quotes"];
+    warnings: string[];
+    best_price: string | null;
+    best_profit: string | null;
+  }[];
+};
+
+export async function runCompare(_prev: ToolState<CompareResult>, form: FormData): Promise<ToolState<CompareResult>> {
+  await requireSession();
+  const channels = list(form.get("channels"));
+  try {
+    const result = await api.post<CompareResult>("/pricing/compare", {
+      reference_material_id: Number(form.get("reference_material_id")),
+      grams: dec(form.get("grams")),
+      print_minutes: Math.max(1, Math.round(Number(dec(form.get("print_hours"))) * 60)),
+      printer_id: Number(form.get("printer_id")),
+      post_minutes: Number(form.get("post_minutes") || 0),
+      category: String(form.get("category") ?? "").trim() || null,
+      extra_costs: dec(form.get("extra_costs")) || "0",
+      ...(channels.length ? { channels } : {}),
+    });
+    return { result };
+  } catch (error) {
+    return { error: messageOf(error) };
+  }
+}

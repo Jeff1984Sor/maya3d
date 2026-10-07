@@ -65,6 +65,7 @@ export const RESOURCES: readonly Resource[] = [
       { name: "finish", label: "Acabamento", type: "text", hint: "silk, matte, glitter…" },
       { name: "supplier", label: "Fornecedor", type: "text" },
       { name: "price_per_kg", label: "Preço por kg (R$)", type: "money", required: true },
+      { name: "density_g_cm3", label: "Densidade (g/cm³)", type: "decimal", hint: "vazio = típica do tipo (PLA 1,24 · PETG 1,27 · ASA 1,07)" },
       { name: "stock_grams", label: "Estoque (g)", type: "int", defaultValue: 0 },
       { name: "reorder_point_grams", label: "Repor abaixo de (g)", type: "int", defaultValue: 500 },
       { name: "active", label: "Ativo", type: "checkbox", defaultValue: true },

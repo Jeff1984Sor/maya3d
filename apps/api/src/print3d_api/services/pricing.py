@@ -9,7 +9,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from print3d_api.models import ChannelFeeBand, CostConfig, Material, Printer
 from print3d_api.models.pricing import COST_CONFIG_ID
-from print3d_api.schemas.pricing import ChannelQuoteOut, CostOut, QuoteRequest, QuoteResponse
+from print3d_api.schemas.pricing import (
+    ChannelQuoteOut,
+    CompareRequest,
+    CompareResponse,
+    CompareRow,
+    CostOut,
+    QuoteRequest,
+    QuoteResponse,
+)
 from print3d_core import (
     CostInputs,
     FeeBand,
@@ -18,6 +26,7 @@ from print3d_core import (
     compute_cost,
     quote_channel,
 )
+from print3d_core.materials import convert_grams, density_for
 from print3d_core.pricing import money
 
 
@@ -131,3 +140,63 @@ async def quote(session: AsyncSession, req: QuoteRequest) -> QuoteResponse:
         quotes=quotes,
         warnings=_warnings(printer, materials),
     )
+
+
+async def compare(session: AsyncSession, req: CompareRequest) -> CompareResponse:
+    """A mesma peça em cada material: gramas ajustadas pela densidade, custo e preço por canal.
+
+    Tempo de impressão é mantido (aproximação; o fatiador por material refina na Fase 1B).
+    """
+    ref_kind, ref_density, ref_label = req.reference_kind.upper(), None, req.reference_kind.upper()
+    if req.reference_material_id is not None:
+        ref = await session.get(Material, req.reference_material_id)
+        if ref is None:
+            raise QuoteInputError(
+                f"material {req.reference_material_id} não existe", not_found=True
+            )
+        ref_kind, ref_density = ref.kind, ref.density_g_cm3
+        ref_label = f"{ref.kind} {ref.color_name}"
+    from_density = density_for(ref_kind, ref_density)
+
+    stmt = select(Material).order_by(Material.kind, Material.color_name)
+    stmt = (
+        stmt.where(Material.id.in_(req.material_ids))
+        if req.material_ids
+        else stmt.where(Material.active)
+    )
+    rows: list[CompareRow] = []
+    for material in (await session.scalars(stmt)).all():
+        density = density_for(material.kind, material.density_g_cm3)
+        grams = convert_grams(req.grams, from_density, density)
+        result = await quote(
+            session,
+            QuoteRequest(
+                grams_by_material={material.id: grams},
+                print_minutes=req.print_minutes,
+                printer_id=req.printer_id,
+                post_minutes=req.post_minutes,
+                category=req.category,
+                extra_costs=req.extra_costs,
+                channels=req.channels,
+            ),
+        )
+        priced = [q for q in result.quotes if q.price is not None]
+        best = min(priced, key=lambda q: q.price or Decimal(0), default=None)
+        rows.append(
+            CompareRow(
+                material_id=material.id,
+                label=f"{material.kind} {material.color_name}"
+                + (f" ({material.brand})" if material.brand else ""),
+                kind=material.kind,
+                color_hex=material.color_hex,
+                density=density,
+                grams=grams,
+                cost=result.cost,
+                quotes=result.quotes,
+                warnings=result.warnings,
+                best_price=best.price if best else None,
+                best_profit=best.net_profit if best else None,
+            )
+        )
+    rows.sort(key=lambda r: r.cost.total)
+    return CompareResponse(reference=ref_label, reference_grams=req.grams, rows=rows)

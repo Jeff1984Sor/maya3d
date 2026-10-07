@@ -213,6 +213,19 @@ function VariantCard({
           </ConfirmSubmit>
         </form>
       </div>
+      {variant.grams_by_material && Object.keys(variant.grams_by_material).length === 1 && variant.print_seconds && (
+        <Link
+          className="mt-2 inline-block text-xs text-secondary hover:underline"
+          href={`/comparativo?${new URLSearchParams({
+            ref: Object.keys(variant.grams_by_material)[0]!,
+            grams: String(Object.values(variant.grams_by_material)[0]),
+            hours: (variant.print_seconds / 3600).toFixed(2),
+            post: String(variant.post_minutes),
+          })}`}
+        >
+          comparar em outros materiais →
+        </Link>
+      )}
       {variant.grams_by_material && (
         <p className="mt-2 text-xs text-muted">
           {Object.entries(variant.grams_by_material)

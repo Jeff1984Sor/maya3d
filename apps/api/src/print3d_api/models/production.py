@@ -20,6 +20,8 @@ class Material(IdMixin, TimestampMixin, Base):
     finish: Mapped[str | None] = mapped_column(String(40))  # silk, matte...
     supplier: Mapped[str | None] = mapped_column(String(120))
     price_per_kg: Mapped[Decimal] = mapped_column(Numeric(10, 2))
+    # Nulo = densidade típica do tipo (print3d_core.materials). Usada no comparativo.
+    density_g_cm3: Mapped[Decimal | None] = mapped_column(Numeric(5, 3))
     stock_grams: Mapped[int] = mapped_column(Integer, default=0)
     reorder_point_grams: Mapped[int] = mapped_column(Integer, default=500)
     active: Mapped[bool] = mapped_column(Boolean, default=True)

@@ -11,6 +11,7 @@ const TOOLS = [
   { href: "/produtos", label: "Produtos" },
   { href: "/parametricos", label: "Paramétricos" },
   { href: "/calculadora", label: "Calculadora de preço" },
+  { href: "/comparativo", label: "Comparativo de materiais" },
   { href: "/guardiao", label: "Guardião" },
   { href: "/auditoria", label: "Auditoria" },
   { href: "/custos", label: "Custos" },

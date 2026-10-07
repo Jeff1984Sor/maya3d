@@ -34,6 +34,7 @@ class MaterialIn(BaseModel):
     finish: str | None = Field(default=None, max_length=40)
     supplier: str | None = Field(default=None, max_length=120)
     price_per_kg: Money
+    density_g_cm3: Decimal | None = Field(default=None, gt=0, le=5, description="vazio = típica")
     stock_grams: int = Field(default=0, ge=0)
     reorder_point_grams: int = Field(default=500, ge=0)
     active: bool = True
@@ -47,6 +48,7 @@ class MaterialPatch(BaseModel):
     finish: str | None = None
     supplier: str | None = None
     price_per_kg: Money | None = None
+    density_g_cm3: Decimal | None = Field(default=None, gt=0, le=5)
     stock_grams: int | None = Field(default=None, ge=0)
     reorder_point_grams: int | None = Field(default=None, ge=0)
     active: bool | None = None

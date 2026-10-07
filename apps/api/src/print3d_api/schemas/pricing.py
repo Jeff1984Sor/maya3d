@@ -45,3 +45,38 @@ class QuoteResponse(BaseModel):
     target_profit: Decimal
     quotes: list[ChannelQuoteOut]
     warnings: list[str] = []
+
+
+class CompareRequest(BaseModel):
+    """Mesma peça em vários materiais. Gramas e tempo são do material de referência."""
+
+    reference_material_id: int | None = None
+    reference_kind: str = "PLA"  # usado se não houver material de referência
+    grams: Annotated[Decimal, Field(gt=0, le=20000)]
+    print_minutes: int = Field(gt=0, le=60 * 24 * 7)
+    printer_id: int
+    post_minutes: int = Field(default=0, ge=0, le=60 * 24)
+    category: str | None = None
+    extra_costs: Money = Decimal(0)
+    channels: list[str] | None = None
+    material_ids: list[int] | None = None  # None = todos os materiais ativos
+
+
+class CompareRow(BaseModel):
+    material_id: int
+    label: str
+    kind: str
+    color_hex: str
+    density: Decimal
+    grams: Decimal
+    cost: CostOut
+    quotes: list[ChannelQuoteOut]
+    warnings: list[str] = []
+    best_price: Decimal | None = None
+    best_profit: Decimal | None = None
+
+
+class CompareResponse(BaseModel):
+    reference: str
+    reference_grams: Decimal
+    rows: list[CompareRow]
