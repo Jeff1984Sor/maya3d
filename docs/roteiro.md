@@ -12,10 +12,10 @@ atrás de um Provider, com testes de contrato e estado "não configurado" visív
 | 2 | Guardião de IP, nichos, licenças, auditoria | ✅ v0.3 |
 | 3 | Painel admin com login | ✅ v0.4 |
 | 4 | Modelos paramétricos (chaveiro letra+nome, caixas) gerados no worker + armazenamento + visualizador 3D | ✅ v0.5 |
-| 5 | Produtos e variantes no painel (Guardião automático), catálogo | |
-| 6 | Pedidos, fila de impressão por cor/material, tela Produção, aprovação de amostra | |
+| 5 | Produtos e variantes no painel (Guardião automático), catálogo | ✅ v0.5 |
+| 6 | Pedidos, fila de impressão por cor/material, tela Produção, aprovação de amostra, caixa de saída | ✅ v0.5 |
 | 7 | Loja: catálogo, produto, carrinho, conta, checkout, frete (regra Sorocaba) | |
-| 8 | IA: provedor Claude, "✨ Enriquecer", Redator, Guardião visual, busca semântica, assistente | |
+| 8 | IA: provedores Claude/OpenAI, tela IA, "✨ Enriquecer" ✅ v0.5 · Redator, Guardião visual, busca semântica, assistente | parcial |
 | 9 | Mercado Livre e Shopee (OAuth, publicação, pedidos, perguntas) | |
 | 10 | Fatiador e renders em containers; CMS; conteúdo/MayaPost; app Expo; Analista | |
 
@@ -24,7 +24,7 @@ atrás de um Provider, com testes de contrato e estado "não configurado" visív
 |---|---|---|
 | Impressora | cadastra em Impressoras (status ativa) + perfil do fatiador | gramas/tempo reais, preços reais, fila de impressão |
 | Domínio | DNS + `BASE_DOMAIN` + certbot (runbook) | HTTPS, login de clientes, callbacks ML/Shopee/Meta |
-| Chave Anthropic | `AI_API_KEY` + `AI_MODEL_*` no `.env` | Enriquecer, Redator, Guardião visual, assistente |
+| Chave de IA (OpenAI ou Anthropic) | `AI_PROVIDER` + `AI_API_KEY` no `.env`; modelos escolhidos no painel (IA) | Enriquecer, Redator, Guardião visual, assistente |
 | WhatsApp Business (Meta) | token + número no `.env` | avisos de venda e status de pedido |
 | Mercado Livre / Shopee | app nas plataformas + OAuth no painel | publicação e pedidos |
 | Gateway de pagamento | chaves no `.env` (ADR 0004) | checkout com cartão/Pix |

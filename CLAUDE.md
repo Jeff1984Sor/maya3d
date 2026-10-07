@@ -41,13 +41,16 @@ Especificação completa: [docs/especificacao/prompt-impressao3d.md](docs/especi
 | 0 Fundação e CI/CD | **Concluída em 2026-10-07** (staging no ar por IP, sem HTTPS — ADR 0007) — ver [docs/fases/fase-0.md](docs/fases/fase-0.md) |
 | 1 Núcleo 3D e precificação | **Parte A entregue** (motor de preço, análise de STL, cadastros, API admin). Parte B aguarda impressora — ver [docs/fases/fase-1.md](docs/fases/fase-1.md) |
 | 2 Catálogo autônomo | **Parte A entregue** (Guardião de regras + evals, nichos, licenças, auditoria) — ver [docs/fases/fase-2.md](docs/fases/fase-2.md) |
-| 3–8 | não iniciadas |
+| Painel, paramétricos, produtos, pedidos/produção, IA | **v0.5.0 em produção** — ver [docs/roteiro.md](docs/roteiro.md) |
+| 3 ML/Shopee, 7 Loja, 10 fatiador/CMS/app | não iniciadas (aguardam domínio/impressora) |
 
 ## Decisões abertas / pendências
 - ADR 0003 (fatiador) e 0004 (gateway de cartão): propostos, a validar — ver `docs/adr/`.
 - Servidor: `srv1703721` (IP 2.25.130.240), usuário `deploy`, raiz `/srv/print3d`. Outros serviços rodam lá: usar só as portas 38000–38002 (staging) e 39000–39002 (prod). Postgres 16 do host via socket Unix.
 - `uv.lock` e `pnpm-lock.yaml` commitados (CI usa `--locked`/`--frozen-lockfile`).
 - Painel admin (v0.4.0): login por `ADMIN_PASSWORD` (no `.env` de cada stack), sessão HMAC; o token da API (`ADMIN_API_TOKEN`) nunca vai ao navegador. Cadastros simples são gerados de `apps/admin/src/lib/resources.ts` (campo novo na API = uma linha lá).
+- IA: provedor por `AI_PROVIDER` (claude|openai), chave só no `.env`; modelos escolhidos no painel (tabela `ai_config`), nunca no código. O dono usa OpenAI.
+- CI: falhas de teste viram anotações (legíveis pela API pública); limite de 60 consultas/h — para acompanhar deploy, prefira olhar `/health/live` (release) do servidor.
 - Checagem local permitida: `npx pnpm@9.15.0 -r typecheck|lint|test` (o `next build` local falha só por symlink do Windows no standalone; no CI passa).
 - Produção no ar: v0.1.0 (loja :39001, admin :39002, API :39000). Domínio + HTTPS antes da Fase 3.
 - O dono não usa a interface do GitHub. Produção **sem aprovação manual** (autorizado em 2026-10-07): para publicar, criar e enviar uma tag `vX.Y.Z` daqui; o CD passa por CI → staging + smoke → prod. Acompanhar via API pública do GitHub (limite de 60 consultas/h) ou testando as portas.
