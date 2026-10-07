@@ -3,7 +3,7 @@
 # Gera /etc/nginx/sites-available/print3d-<stack>.conf a partir de infra/nginx.
 # Não sobrescreve conf existente (o certbot já editou o bloco HTTPS) sem --force.
 set -euo pipefail
-SCRIPT_NAME=nginx-render
+export SCRIPT_NAME=nginx-render
 # shellcheck source=lib/common.sh
 source "$(dirname "$0")/lib/common.sh"
 

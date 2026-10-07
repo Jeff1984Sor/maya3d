@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from print3d_mesh import MeshAnalyzer, MeshReport, SliceResult, Slicer
+from print3d_mesh import MeshAnalyzer, MeshReport, Slicer, SliceResult
 
 
 class _Analyzer:

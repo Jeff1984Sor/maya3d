@@ -4,7 +4,8 @@ from pathlib import Path
 SPEC = importlib.util.spec_from_file_location(
     "check_brand", Path(__file__).resolve().parents[1] / "check_brand.py"
 )
-assert SPEC and SPEC.loader
+assert SPEC is not None
+assert SPEC.loader is not None
 check_brand = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(check_brand)
 

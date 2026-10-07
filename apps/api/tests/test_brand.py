@@ -9,10 +9,19 @@ from print3d_api.schemas.brand import BrandPublic
 from print3d_api.services.brand import BrandNotConfiguredError, BrandService
 
 ROW = SimpleNamespace(
-    name="Loja Teste", tagline="t", logo_light_url=None, logo_dark_url=None, favicon_url=None,
+    name="Loja Teste",
+    tagline="t",
+    logo_light_url=None,
+    logo_dark_url=None,
+    favicon_url=None,
     colors={"light": {"primary": "#FF6B2C"}, "dark": {"primary": "#FF6B2C"}},
-    fonts={"heading": "Space Grotesk", "body": "Inter"}, domain=None, contact_email=None,
-    contact_whatsapp=None, social={}, voice="segredo interno", cnpj="00.000.000/0000-00",
+    fonts={"heading": "Space Grotesk", "body": "Inter"},
+    domain=None,
+    contact_email=None,
+    contact_whatsapp=None,
+    social={},
+    voice="segredo interno",
+    cnpj="00.000.000/0000-00",
 )
 
 

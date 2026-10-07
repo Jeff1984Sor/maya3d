@@ -27,7 +27,11 @@ def test_upgrade_cria_extensoes_e_semente() -> None:
         name = conn.execute(text("SELECT name FROM brand_settings WHERE id = 1")).scalar_one()
         assert name  # semente neutra existe
         with pytest.raises(Exception, match="singleton"):
-            conn.execute(text("INSERT INTO brand_settings (id, name, colors, fonts) VALUES (2,'x','{}','{}')"))
+            conn.execute(
+                text(
+                    "INSERT INTO brand_settings (id, name, colors, fonts) VALUES (2,'x','{}','{}')"
+                )
+            )
 
 
 def test_downgrade_e_upgrade_sao_reversiveis() -> None:

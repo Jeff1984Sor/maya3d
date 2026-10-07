@@ -1,4 +1,4 @@
-"""Contrato de notificação. Cliente usa a API oficial da Meta; operação pode usar o gateway MayaSec."""
+"""Contrato de notificação (cliente: API oficial da Meta; operação: gateway MayaSec)."""
 
 from typing import Protocol, runtime_checkable
 

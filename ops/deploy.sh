@@ -4,7 +4,7 @@
 # Se a subida falhar, volta os containers para a tag anterior (o banco NÃO volta:
 # migrações devem ser expand/contract, compatíveis com a versão anterior — ver ADR 0005).
 set -euo pipefail
-SCRIPT_NAME=deploy
+export SCRIPT_NAME=deploy
 # shellcheck source=lib/common.sh
 source "$(dirname "$0")/lib/common.sh"
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Uso: ops/diagnose.sh <staging|prod>  — retrato somente leitura da stack. Seguro rodar a qualquer hora.
 set -uo pipefail
-SCRIPT_NAME=diagnose
+export SCRIPT_NAME=diagnose
 # shellcheck source=lib/common.sh
 source "$(dirname "$0")/lib/common.sh"
 

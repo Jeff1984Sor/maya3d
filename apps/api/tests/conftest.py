@@ -1,4 +1,3 @@
-from collections.abc import Iterator
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -23,9 +22,9 @@ def settings() -> Settings:
 
 
 @pytest.fixture
-def client(settings: Settings) -> Iterator[TestClient]:
+def client(settings: Settings) -> TestClient:
     # Sem `with`: o lifespan (engine/redis reais) não roda; injetamos stubs em app.state.
     app = create_app(settings)
     app.state.health_checker = _OkChecker()
     app.state.session_factory = MagicMock(return_value=AsyncMock())
-    yield TestClient(app)
+    return TestClient(app)

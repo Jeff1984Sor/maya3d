@@ -19,12 +19,22 @@ depends_on: str | Sequence[str] | None = None
 # Paleta da seção 5.1 da especificação. Nome neutro: o dono troca no admin.
 SEED_COLORS = {
     "light": {
-        "bg": "#F7F4EF", "surface": "#FFFFFF", "ink": "#1E1E24", "muted": "#6B7280",
-        "primary": "#FF6B2C", "secondary": "#14B8A6", "border": "#E7E2DA",
+        "bg": "#F7F4EF",
+        "surface": "#FFFFFF",
+        "ink": "#1E1E24",
+        "muted": "#6B7280",
+        "primary": "#FF6B2C",
+        "secondary": "#14B8A6",
+        "border": "#E7E2DA",
     },
     "dark": {
-        "bg": "#141418", "surface": "#1E1E24", "ink": "#F7F4EF", "muted": "#9CA3AF",
-        "primary": "#FF6B2C", "secondary": "#14B8A6", "border": "#2E2E36",
+        "bg": "#141418",
+        "surface": "#1E1E24",
+        "ink": "#F7F4EF",
+        "muted": "#9CA3AF",
+        "primary": "#FF6B2C",
+        "secondary": "#14B8A6",
+        "border": "#2E2E36",
     },
 }
 SEED_FONTS = {"heading": "Space Grotesk", "body": "Inter"}
@@ -53,7 +63,9 @@ def upgrade() -> None:
         sa.Column("legal_name", sa.String(255)),
         sa.Column("voice", sa.Text()),
         sa.Column("voice_by_niche", postgresql.JSONB(), nullable=False, server_default="{}"),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
         sa.CheckConstraint("id = 1", name=op.f("ck_brand_settings_singleton")),
     )
     op.bulk_insert(

@@ -19,7 +19,12 @@ dev = [
 package = false
 
 [tool.uv.workspace]
-members = ["apps/api", "apps/worker", "packages/*"]
+# Lista explícita: packages/shared é TypeScript (sem pyproject.toml).
+members = [
+    "apps/api", "apps/worker",
+    "packages/core", "packages/ai", "packages/channels",
+    "packages/notify", "packages/mesh", "packages/social",
+]
 
 [tool.ruff]
 line-length = 100

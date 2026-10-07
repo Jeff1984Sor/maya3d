@@ -11,7 +11,9 @@ class _Out(BaseModel):
 
 
 class _FakeLLM:
-    async def complete_json(self, *, system: str, prompt: str, schema: type[_Out], model: str) -> _Out:
+    async def complete_json(
+        self, *, system: str, prompt: str, schema: type[_Out], model: str
+    ) -> _Out:
         return schema(ok=True)
 
 

@@ -2,7 +2,7 @@
 # Uso: ops/migrate.sh <staging|prod> [alembic args...]   (padrão: upgrade head)
 # Ex.: ops/migrate.sh staging current
 set -euo pipefail
-SCRIPT_NAME=migrate
+export SCRIPT_NAME=migrate
 # shellcheck source=lib/common.sh
 source "$(dirname "$0")/lib/common.sh"
 

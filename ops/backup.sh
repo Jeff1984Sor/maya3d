@@ -2,7 +2,7 @@
 # Uso: ops/backup.sh <staging|prod>  — pg_dump comprimido, copia p/ GCS, retém 7 dias locais.
 # Arquivos (renders, STL) vivem no GCS com versionamento de objetos ativado no bucket.
 set -euo pipefail
-SCRIPT_NAME=backup
+export SCRIPT_NAME=backup
 # shellcheck source=lib/common.sh
 source "$(dirname "$0")/lib/common.sh"
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Uso: ops/rollback.sh <staging|prod>  — volta containers para a tag anterior (.previous_tag).
 set -euo pipefail
-SCRIPT_NAME=rollback
+export SCRIPT_NAME=rollback
 # shellcheck source=lib/common.sh
 source "$(dirname "$0")/lib/common.sh"
 

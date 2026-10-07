@@ -14,7 +14,9 @@ class TokenVault:
         try:
             self._fernet = Fernet(key.encode())
         except (ValueError, TypeError) as exc:
-            raise TokenVaultError("FERNET_KEY inválida (esperado base64 urlsafe de 32 bytes)") from exc
+            raise TokenVaultError(
+                "FERNET_KEY inválida (esperado base64 urlsafe de 32 bytes)"
+            ) from exc
 
     @staticmethod
     def generate_key() -> str:
@@ -27,4 +29,6 @@ class TokenVault:
         try:
             return self._fernet.decrypt(token.encode()).decode()
         except InvalidToken as exc:
-            raise TokenVaultError("token não pôde ser decifrado (chave errada ou dado corrompido)") from exc
+            raise TokenVaultError(
+                "token não pôde ser decifrado (chave errada ou dado corrompido)"
+            ) from exc

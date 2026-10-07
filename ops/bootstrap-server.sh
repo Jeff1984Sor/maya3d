@@ -3,7 +3,7 @@
 # Idempotente. Cria diretórios, banco + extensões, .env com segredos aleatórios
 # e instala os timers de backup. NÃO apaga nada e NÃO sobrescreve .env existente.
 set -euo pipefail
-SCRIPT_NAME=bootstrap
+export SCRIPT_NAME=bootstrap
 # shellcheck source=lib/common.sh
 source "$(dirname "$0")/lib/common.sh"
 

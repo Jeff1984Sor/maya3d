@@ -17,8 +17,25 @@ ROOT = Path(__file__).resolve().parents[1]
 FORBIDDEN = re.compile(r"maya[\s_-]?3d", re.IGNORECASE)
 
 SCAN_DIRS = ("apps", "packages", "infra", "ops", ".github", "tools")
-SCAN_SUFFIXES = {".py", ".ts", ".tsx", ".js", ".mjs", ".css", ".json", ".yml", ".yaml",
-                 ".sh", ".conf", ".template", ".toml", ".env", ".service", ".timer", ".html"}
+SCAN_SUFFIXES = {
+    ".py",
+    ".ts",
+    ".tsx",
+    ".js",
+    ".mjs",
+    ".css",
+    ".json",
+    ".yml",
+    ".yaml",
+    ".sh",
+    ".conf",
+    ".template",
+    ".toml",
+    ".env",
+    ".service",
+    ".timer",
+    ".html",
+}
 SKIP_PARTS = {"node_modules", ".next", ".venv", "__pycache__", "tests"}
 SKIP_FILES = {"check_brand.py"}  # este arquivo precisa citar o padrão
 
@@ -41,7 +58,9 @@ def iter_files() -> Iterator[Path]:
 def find_violations() -> list[str]:
     violations: list[str] = []
     for path in iter_files():
-        for lineno, line in enumerate(path.read_text(encoding="utf-8", errors="ignore").splitlines(), 1):
+        for lineno, line in enumerate(
+            path.read_text(encoding="utf-8", errors="ignore").splitlines(), 1
+        ):
             if FORBIDDEN.search(line):
                 violations.append(f"{path.relative_to(ROOT)}:{lineno}: {line.strip()[:100]}")
     return violations
@@ -50,7 +69,9 @@ def find_violations() -> list[str]:
 def main() -> int:
     violations = find_violations()
     if violations:
-        print("Marca fixa encontrada no código (use BrandSettings / brand_settings):", file=sys.stderr)
+        print(
+            "Marca fixa encontrada no código (use BrandSettings / brand_settings):", file=sys.stderr
+        )
         print("\n".join(violations), file=sys.stderr)
         return 1
     print("check_brand: ok — nenhum nome de marca fixo no código")

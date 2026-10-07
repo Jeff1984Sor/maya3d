@@ -29,6 +29,12 @@ def test_fake_satisfaz_contrato() -> None:
 def test_preco_precisa_ser_positivo() -> None:
     with pytest.raises(ValidationError):
         ListingDraft(
-            variant_id="v", title="t", description="d", price=Decimal("0"), stock=1,
-            image_urls=[], package_weight_g=10, package_dimensions_mm=(1, 1, 1),
+            variant_id="v",
+            title="t",
+            description="d",
+            price=Decimal("0"),
+            stock=1,
+            image_urls=[],
+            package_weight_g=10,
+            package_dimensions_mm=(1, 1, 1),
         )

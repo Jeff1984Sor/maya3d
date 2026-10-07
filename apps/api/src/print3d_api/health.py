@@ -31,7 +31,7 @@ class HealthChecker:
 
     async def _redis_ping(self) -> CheckResult:
         try:
-            await self._redis.ping()  # type: ignore[misc]
+            await self._redis.ping()
         except Exception as exc:
             return CheckResult(False, type(exc).__name__)
         return CheckResult(True)

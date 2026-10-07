@@ -1,4 +1,4 @@
-"""Nichos iniciais do catálogo (spec seções 2.1–2.8).
+"""Nichos iniciais do catálogo (spec seções 2.1 a 2.8).
 
 Nicho é entidade configurável no banco (Fase 2). Este enum é só a *semente*
 usada por migrações, testes e metas do Catalogador.

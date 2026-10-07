@@ -5,7 +5,7 @@
 #   padrão com BASE_DOMAIN: HTTPS pelos subdomínios (valida Nginx + certificado)
 #   --local: localhost (ignora firewall)
 set -euo pipefail
-SCRIPT_NAME=smoke
+export SCRIPT_NAME=smoke
 # shellcheck source=lib/common.sh
 source "$(dirname "$0")/lib/common.sh"
 

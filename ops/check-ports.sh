@@ -3,7 +3,7 @@
 # Falha se alguma porta da stack já estiver ocupada por OUTRO serviço do servidor.
 # Se a própria stack já estiver rodando (re-deploy), as portas dela são ignoradas.
 set -euo pipefail
-SCRIPT_NAME=check-ports
+export SCRIPT_NAME=check-ports
 # shellcheck source=lib/common.sh
 source "$(dirname "$0")/lib/common.sh"
 

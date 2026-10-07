@@ -3,7 +3,7 @@
 # Teste mensal de restauração: restaura o último dump num banco TEMPORÁRIO e valida.
 # Só toca no banco descartável 'print3d_restore_test' (criado e removido aqui).
 set -euo pipefail
-SCRIPT_NAME=restore-test
+export SCRIPT_NAME=restore-test
 # shellcheck source=lib/common.sh
 source "$(dirname "$0")/lib/common.sh"
 

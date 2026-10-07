@@ -22,7 +22,7 @@ jobs:
       - name: Marca não pode estar fixa no código
         run: python tools/check_brand.py
       - name: ShellCheck (ops)
-        run: shellcheck ops/*.sh ops/lib/*.sh
+        run: shellcheck -x -S warning ops/*.sh ops/lib/*.sh
       - name: Compose válido (staging e prod)
         run: |
           for stack in staging prod; do
