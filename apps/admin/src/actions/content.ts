@@ -162,24 +162,6 @@ export async function deletePage(slug: string): Promise<void> {
 }
 
 // --- Fotos do produto ----------------------------------------------------------------------
-export async function uploadProductImages(productId: number, form: FormData): Promise<void> {
-  await requireSession();
-  const back = `/produtos/${productId}`;
-  const files = form.getAll("files").filter((f): f is File => f instanceof File && f.size > 0);
-  if (!files.length) go(back, "erro", "Escolha uma ou mais fotos.");
-  let sent = 0;
-  for (const file of files) {
-    try {
-      await upload(`/products/${productId}/images`, file);
-      sent++;
-    } catch (e) {
-      go(back, "erro", `${sent} enviada(s); ${file.name}: ${msg(e, "falhou")}`);
-    }
-  }
-  revalidatePath(back);
-  go(back, "ok", `${sent} foto(s) enviada(s).`);
-}
-
 export async function imageAction(productId: number, imageId: number, action: "cover" | "delete"): Promise<void> {
   await requireSession();
   const back = `/produtos/${productId}`;

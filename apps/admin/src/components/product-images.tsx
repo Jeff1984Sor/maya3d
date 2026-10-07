@@ -1,4 +1,5 @@
-import { imageAction, releaseImage, runVisualCheck, uploadProductImages, type ProductImage } from "@/actions/content";
+import { imageAction, releaseImage, runVisualCheck, type ProductImage } from "@/actions/content";
+import { PhotoUploader } from "@/components/photo-uploader";
 import { Badge, Button, Card, inputClass } from "@/components/ui";
 
 const VISUAL: Record<ProductImage["visual_status"], { label: string; tone: "ok" | "warn" | "danger" | "muted" }> = {
@@ -69,14 +70,7 @@ export function ProductImages({ productId, images }: { productId: number; images
           </form>
         </div>
       )}
-      <form action={uploadProductImages.bind(null, productId)} className="flex flex-col gap-2">
-        <input type="file" name="files" multiple accept="image/png,image/jpeg,image/webp" className="text-sm" />
-        <Button variant="secondary">Enviar fotos</Button>
-        <p className="text-xs text-muted">
-          JPG, PNG ou WebP até 20 MB. O sistema otimiza, tira a localização da foto e o Guardião visual confere personagens, marcas e
-          qualidade.
-        </p>
-      </form>
+      <PhotoUploader productId={productId} />
     </Card>
   );
 }

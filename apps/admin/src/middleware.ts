@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE, sessionSecret, verifySession } from "@/lib/session";
 
-/** Todo o painel exige sessão, exceto login e healthcheck. O envio da Biblioteca confere a
+/** Todo o painel exige sessão, exceto login e healthcheck. Os envios (Biblioteca, fotos) conferem a
  * sessão na própria rota (o middleware limitaria o tamanho do corpo). */
 export async function middleware(request: NextRequest) {
   const ok = await verifySession(sessionSecret(), request.cookies.get(SESSION_COOKIE)?.value);
@@ -12,5 +12,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!login|api/health|api/library|_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!login|api/health|api/library|api/products|_next/static|_next/image|favicon.ico).*)"],
 };
