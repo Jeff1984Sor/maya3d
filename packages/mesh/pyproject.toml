@@ -3,7 +3,8 @@ name = "print3d-mesh"
 version = "0.1.0"
 description = "Pipeline 3D: análise de malha, paramétricos, render e fatiamento"
 requires-python = ">=3.12"
-dependencies = ["pydantic>=2.10", "trimesh>=4.5", "numpy>=2.1"]
+# networkx: trimesh precisa de um motor de grafos para separar corpos (peça inteiriça?)
+dependencies = ["pydantic>=2.10", "trimesh>=4.5", "numpy>=2.1", "networkx>=3.3"]
 # Próximas partes: manifold3d (reparo/booleanas), build123d (paramétricos). Blender e fatiador
 # rodam em containers próprios.
 

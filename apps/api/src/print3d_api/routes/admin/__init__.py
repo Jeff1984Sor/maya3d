@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 
 from print3d_api.models import (
     ChannelFeeBand,
+    Customer,
     GuardianTermOverride,
     License,
     Material,
@@ -11,7 +12,15 @@ from print3d_api.models import (
     PackagingBox,
     Printer,
 )
-from print3d_api.routes.admin import costs, guardian, mesh, parametric, pricing, products
+from print3d_api.routes.admin import (
+    costs,
+    guardian,
+    mesh,
+    orders,
+    parametric,
+    pricing,
+    products,
+)
 from print3d_api.routes.admin.crud import crud_router
 from print3d_api.schemas.admin import (
     FeeBandIn,
@@ -38,6 +47,7 @@ from print3d_api.schemas.governance import (
     TermOverrideOut,
     TermOverridePatch,
 )
+from print3d_api.schemas.orders import CustomerIn, CustomerOut, CustomerPatch
 from print3d_api.security import require_admin
 
 router = APIRouter(prefix="/v1/admin", dependencies=[Depends(require_admin)])
@@ -111,3 +121,15 @@ router.include_router(mesh.router)
 router.include_router(guardian.router)
 router.include_router(parametric.router)
 router.include_router(products.router)
+router.include_router(orders.router)
+router.include_router(
+    crud_router(
+        Customer,
+        CustomerIn,
+        CustomerPatch,
+        CustomerOut,
+        prefix="/customers",
+        tag="admin: clientes",
+        order_by=(Customer.name,),
+    )
+)
