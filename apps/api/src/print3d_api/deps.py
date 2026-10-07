@@ -7,6 +7,7 @@ from fastapi import Request
 
 from print3d_api.config import Settings
 from print3d_api.health import HealthChecker
+from print3d_api.services import ai, search
 from print3d_api.services.brand import BrandService
 from print3d_core.storage import LocalStorage
 
@@ -35,3 +36,16 @@ def get_queue(request: Request) -> ArqRedis:
 def get_storage(request: Request) -> LocalStorage:
     settings: Settings = request.app.state.settings
     return LocalStorage(Path(settings.files_dir))
+
+
+def get_ai_factory(request: Request) -> ai.ProviderFactory:
+    """Fornecedor de IA (trocável nos testes por app.state.ai_factory)."""
+    factory: ai.ProviderFactory = getattr(request.app.state, "ai_factory", ai.default_factory)
+    return factory
+
+
+def get_embedder_factory(request: Request) -> search.EmbedderFactory:
+    factory: search.EmbedderFactory = getattr(
+        request.app.state, "embedder_factory", search.default_embedder_factory
+    )
+    return factory

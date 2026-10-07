@@ -53,7 +53,12 @@ export type ShippingQuote = {
   free_shipping_min: string | null;
   missing_for_free: string | null;
 };
-export type StoreSettings = { free_shipping_min: string | null; pickup_enabled: boolean; pix_enabled: boolean };
+export type StoreSettings = {
+  free_shipping_min: string | null;
+  pickup_enabled: boolean;
+  pix_enabled: boolean;
+  assistant_enabled?: boolean;
+};
 export type Pix = { key: string | null; name: string | null; amount: string };
 export type PublicOrder = {
   number: number;

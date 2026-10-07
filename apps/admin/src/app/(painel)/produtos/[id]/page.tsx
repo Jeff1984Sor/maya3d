@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { addVariant, deleteProduct, deleteVariant, setStatus, updateProduct } from "@/actions/products";
+import type { ChannelCopy } from "@/actions/ai";
+import { ChannelCopyPanel } from "@/components/channel-copy-panel";
 import { ConfirmSubmit } from "@/components/confirm-submit";
 import { Flash } from "@/components/flash";
 import { GuardianBadge, StatusBadge } from "@/components/product-badges";
@@ -29,10 +31,11 @@ export default async function ProdutoPage({
     if (error instanceof AdminApiError && error.status === 404) notFound();
     throw error;
   }
-  const [niches, materials, packaging, quotes] = await Promise.all([
+  const [niches, materials, packaging, copies, quotes] = await Promise.all([
     api.get<Niche[]>("/niches"),
     api.get<Material[]>("/materials"),
     api.get<Packaging[]>("/packaging"),
+    api.get<ChannelCopy[]>(`/ai/channel-copy?product_id=${id}`),
     Promise.all(product.variants.map((v) => api.get<VariantQuote>(`/products/${id}/variants/${v.id}/quote`))),
   ]);
   const materialName = (mid: string) => {
@@ -140,6 +143,8 @@ export default async function ProdutoPage({
               </form>
             </details>
           </Card>
+
+          <ChannelCopyPanel productId={id} copies={copies} />
 
           <Card title="Dados do produto">
             <ProductForm niches={niches} product={product} action={updateProduct.bind(null, id)} submitLabel="Salvar e verificar" />

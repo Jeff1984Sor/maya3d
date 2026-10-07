@@ -51,7 +51,7 @@ from print3d_api.schemas.store import (
     StoreVariant,
     TimelineEntry,
 )
-from print3d_api.services import guardian, orders
+from print3d_api.services import guardian, orders, search
 from print3d_api.services.cep import CepProvider
 from print3d_api.services.pricing import margin_for, select_bands
 from print3d_core import CostInputs, FeeBand, PricingError, ProfitRule, compute_cost, quote_channel
@@ -190,9 +190,34 @@ def _card(ctx: PriceContext, product: Product, variants: list[Variant]) -> Store
     )
 
 
-async def list_products(
-    session: AsyncSession, *, niche: str | None, q: str | None, limit: int, offset: int
+async def cards_by_ids(
+    session: AsyncSession, ids: Sequence[int], limit: int
 ) -> list[StoreProductCard]:
+    """Cartões na ordem dada, só dos produtos que continuam à venda."""
+    if not ids:
+        return []
+    rows = {p.id: p for p in (await session.scalars(_sellable_stmt().where(Product.id.in_(ids))))}
+    ctx = await load_context(session)
+    products = [
+        rows[i]
+        for i in ids
+        if i in rows and material_available(rows[i].min_material, ctx.printable)
+    ][:limit]
+    variants = await _variants(session, [p.id for p in products])
+    return [_card(ctx, p, variants[p.id]) for p in products]
+
+
+async def list_products(
+    session: AsyncSession,
+    *,
+    niche: str | None,
+    q: str | None,
+    limit: int,
+    offset: int,
+    semantic_ids: Sequence[int] | None = None,
+) -> list[StoreProductCard]:
+    """Busca por palavra; com `semantic_ids` (busca por significado), soma os parecidos
+    depois dos resultados exatos (só na primeira página)."""
     stmt = _sellable_stmt().order_by(Product.updated_at.desc())
     if niche:
         stmt = stmt.where(Product.niche == niche)
@@ -205,6 +230,9 @@ async def list_products(
                 func.unaccent(cast(Product.tags, String)).ilike(func.unaccent(like)),
             )
         )
+    if q and semantic_ids and offset == 0:
+        literal = (await session.scalars(stmt.with_only_columns(Product.id).limit(limit))).all()
+        return await cards_by_ids(session, search.merge_ranked(literal, semantic_ids), limit)
     products = (await session.scalars(stmt.limit(limit * 2).offset(offset))).all()
     ctx = await load_context(session)
     products = [p for p in products if material_available(p.min_material, ctx.printable)][:limit]

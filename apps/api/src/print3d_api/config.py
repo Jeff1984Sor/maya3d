@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     max_upload_mb: int = 50
     files_dir: str = "/data/files"  # volume compartilhado com o worker (STL gerados etc.)
 
+    # Busca semântica: distância de cosseno máxima para um produto contar como resultado.
+    semantic_max_distance: float = 0.75
+    # Assistente da loja: proteção de custo (por IP/minuto e total por dia).
+    assistant_per_minute: int = 8
+    assistant_daily_limit: int = 500
+
 
 @lru_cache
 def get_settings() -> Settings:

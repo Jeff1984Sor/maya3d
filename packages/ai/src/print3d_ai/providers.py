@@ -19,6 +19,6 @@ class LLMProvider(Protocol):
 
 @runtime_checkable
 class EmbeddingProvider(Protocol):
-    dimensions: int
+    """Vetores para busca semântica. A dimensão depende do modelo escolhido no painel."""
 
-    async def embed(self, texts: Sequence[str]) -> list[list[float]]: ...
+    async def embed(self, texts: Sequence[str], *, model: str) -> list[list[float]]: ...

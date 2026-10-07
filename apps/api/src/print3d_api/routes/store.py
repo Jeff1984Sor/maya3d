@@ -1,5 +1,7 @@
 """API pública da loja (sem token de admin). Só expõe o que o cliente pode ver."""
 
+import logging
+from datetime import date
 from decimal import Decimal
 from typing import Annotated, Any
 
@@ -7,11 +9,13 @@ from arq.connections import ArqRedis
 from arq.jobs import Job, JobStatus
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, status
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from print3d_ai import AINotConfiguredError, AIOutputError, AIRefusedError
+from print3d_ai.prompts import shop_assistant
 from print3d_api.db.session import get_session
-from print3d_api.deps import get_queue, get_storage
+from print3d_api.deps import get_ai_factory, get_embedder_factory, get_queue, get_storage
 from print3d_api.models import OpsConfig
 from print3d_api.models.orders import OPS_CONFIG_ID
 from print3d_api.schemas.governance import GuardianCheckIn
@@ -27,7 +31,7 @@ from print3d_api.schemas.store import (
     StoreProduct,
     StoreProductCard,
 )
-from print3d_api.services import guardian, store
+from print3d_api.services import ai, assistant, guardian, search, store
 from print3d_api.services.cep import CepError, CepProvider, ViaCepProvider
 from print3d_core.storage import LocalStorage, StorageError
 from print3d_mesh.parametric import MODELS
@@ -35,6 +39,10 @@ from print3d_mesh.parametric import MODELS
 router = APIRouter(prefix="/v1/store", tags=["loja"])
 Session = Annotated[AsyncSession, Depends(get_session)]
 Queue = Annotated[ArqRedis, Depends(get_queue)]
+AIFactory = Annotated[ai.ProviderFactory, Depends(get_ai_factory)]
+Embedders = Annotated[search.EmbedderFactory, Depends(get_embedder_factory)]
+log = logging.getLogger("print3d.store")
+ASSISTANT_ERRORS: tuple[type[Exception], ...] = (AIOutputError, AIRefusedError, *ai.PROVIDER_ERRORS)
 PREVIEWS_PER_MINUTE = 20  # proteção do worker: prévias 3D são CPU pesado
 
 
@@ -61,13 +69,28 @@ async def niches(session: Session) -> list[StoreNiche]:
 
 @router.get("/products", response_model=list[StoreProductCard])
 async def products(
+    request: Request,
     session: Session,
+    embedders: Embedders,
     niche: str | None = None,
     q: Annotated[str | None, Query(max_length=80)] = None,
     limit: Annotated[int, Query(ge=1, le=60)] = 24,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[StoreProductCard]:
-    return await store.list_products(session, niche=niche, q=q, limit=limit, offset=offset)
+    semantic: list[int] | None = None
+    if q and len(q.strip()) >= 3 and offset == 0:
+        hits = await search.semantic_hits(
+            session,
+            embedders,
+            q,
+            max_distance=request.app.state.settings.semantic_max_distance,
+            niche=niche,
+            limit=limit,
+        )
+        semantic = [pid for pid, _ in hits] if hits else None
+    return await store.list_products(
+        session, niche=niche, q=q, limit=limit, offset=offset, semantic_ids=semantic
+    )
 
 
 @router.get("/products/{slug}", response_model=StoreProduct)
@@ -232,6 +255,7 @@ class StoreSettings(BaseModel):
     local_cities_ibge: list[str]
     pickup_enabled: bool
     pix_enabled: bool
+    assistant_enabled: bool = False
 
 
 @router.get("/settings", response_model=StoreSettings)
@@ -243,4 +267,61 @@ async def store_settings(session: Session) -> StoreSettings:
         local_cities_ibge=list(ops.local_cities_ibge) if ops else [],
         pickup_enabled=bool(ops and ops.pickup_enabled),
         pix_enabled=bool(ops and ops.pix_key),
+        assistant_enabled=bool(
+            await assistant.model_for(session) and await assistant.has_catalog(session)
+        ),
     )
+
+
+class AssistantIn(BaseModel):
+    messages: list[shop_assistant.ChatTurn] = Field(min_length=1, max_length=16)
+    client_id: str | None = Field(default=None, max_length=64)  # IP/visitante, vindo da vitrine
+
+
+async def _assistant_quota(queue: ArqRedis, settings: Any, client: str) -> None:
+    """Proteção de custo: por visitante/minuto e total do dia."""
+    day = f"print3d:store:assistant:day:{date.today().isoformat()}"
+    per_client = f"print3d:store:assistant:min:{client}"
+    used_day = await queue.incr(day)
+    if used_day == 1:
+        await queue.expire(day, 86_400)
+    used_min = await queue.incr(per_client)
+    if used_min == 1:
+        await queue.expire(per_client, 60)
+    if used_day > settings.assistant_daily_limit:
+        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "assistente em pausa hoje")
+    if used_min > settings.assistant_per_minute:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS, "muitas mensagens; espere um minutinho"
+        )
+
+
+@router.post("/assistant", response_model=assistant.AssistantOut)
+async def ask_assistant(
+    payload: AssistantIn,
+    request: Request,
+    session: Session,
+    queue: Queue,
+    factory: AIFactory,
+    embedders: Embedders,
+) -> assistant.AssistantOut:
+    if payload.messages[-1].role != "user":
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "a última mensagem é do cliente")
+    settings = request.app.state.settings
+    client = payload.client_id or (request.client.host if request.client else "anon")
+    await _assistant_quota(queue, settings, client)
+    try:
+        return await assistant.ask(
+            session,
+            factory,
+            embedders,
+            payload.messages,
+            max_distance=settings.semantic_max_distance,
+        )
+    except AINotConfiguredError as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "assistente desligado") from exc
+    except ASSISTANT_ERRORS as exc:
+        log.warning("assistente falhou", exc_info=True)
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY, "o assistente não conseguiu responder agora"
+        ) from exc

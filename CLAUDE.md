@@ -41,7 +41,7 @@ Especificação completa: [docs/especificacao/prompt-impressao3d.md](docs/especi
 | 0 Fundação e CI/CD | **Concluída em 2026-10-07** (staging no ar por IP, sem HTTPS — ADR 0007) — ver [docs/fases/fase-0.md](docs/fases/fase-0.md) |
 | 1 Núcleo 3D e precificação | **Parte A entregue** (motor de preço, análise de STL, cadastros, API admin). Parte B aguarda impressora — ver [docs/fases/fase-1.md](docs/fases/fase-1.md) |
 | 2 Catálogo autônomo | **Parte A entregue** (Guardião de regras + evals, nichos, licenças, auditoria) — ver [docs/fases/fase-2.md](docs/fases/fase-2.md) |
-| Painel, paramétricos, produtos, pedidos/produção, IA | **v0.5.0 em produção** — ver [docs/roteiro.md](docs/roteiro.md) |
+| Painel, paramétricos, produtos, pedidos/produção, loja (v0.6), WhatsApp (v0.7), IA de catálogo (v0.8) | em produção — ver [docs/roteiro.md](docs/roteiro.md) |
 | 3 ML/Shopee, 7 Loja, 10 fatiador/CMS/app | não iniciadas (aguardam domínio/impressora) |
 
 ## Decisões abertas / pendências

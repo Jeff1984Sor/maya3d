@@ -19,6 +19,7 @@ from print3d_api.health import HealthChecker
 from print3d_api.logging import configure_logging
 from print3d_api.middleware import RequestContextMiddleware
 from print3d_api.routes import admin, brand, health, store, webhooks
+from print3d_api.services import search
 from print3d_api.services.brand import BrandService
 from print3d_notify.meta import MetaWhatsAppProvider, WhatsAppSettings
 
@@ -46,14 +47,22 @@ def create_app(
                     app.state.session_factory, MetaWhatsAppProvider(wa), app.state.dispatch_now
                 )
             )
+        indexer: asyncio.Task[None] | None = None
+        if settings.environment != "ci":  # mantém a busca semântica em dia (liga sozinho)
+            indexer = asyncio.create_task(
+                search.run_indexer(
+                    app.state.session_factory, search.default_embedder_factory, interval=300
+                )
+            )
         log.info("api iniciada", extra={"release": settings.release, "env": settings.environment})
         try:
             yield
         finally:
-            if dispatcher is not None:
-                dispatcher.cancel()
-                with contextlib.suppress(asyncio.CancelledError):
-                    await dispatcher
+            for task in (dispatcher, indexer):
+                if task is not None:
+                    task.cancel()
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await task
             await app.state.queue.aclose()
             await redis.aclose()
             await engine.dispose()

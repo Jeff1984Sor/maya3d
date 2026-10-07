@@ -1,6 +1,6 @@
 """Importar todos os modelos aqui garante que o Alembic os enxergue em Base.metadata."""
 
-from print3d_api.models.ai import AIConfig
+from print3d_api.models.ai import AIConfig, ChannelCopy, ProductEmbedding
 from print3d_api.models.brand import BrandSettings
 from print3d_api.models.catalog import Design, Product, Variant
 from print3d_api.models.governance import AuditLog, GuardianTermOverride, License, Niche
@@ -24,6 +24,7 @@ __all__ = [
     "AuditLog",
     "BrandSettings",
     "Cart",
+    "ChannelCopy",
     "ChannelFeeBand",
     "CostConfig",
     "Customer",
@@ -43,5 +44,6 @@ __all__ = [
     "Printer",
     "ProducedFingerprint",
     "Product",
+    "ProductEmbedding",
     "Variant",
 ]

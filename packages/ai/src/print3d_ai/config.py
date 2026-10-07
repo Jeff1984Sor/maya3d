@@ -16,8 +16,12 @@ class AITask(StrEnum):
 class AISettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="AI_", extra="ignore")
 
-    provider: str = "claude"  # claude | gemini
+    provider: str = "claude"  # claude | openai
     api_key: SecretStr | None = None
+    # Busca semântica: a Anthropic não oferece embeddings. Com AI_PROVIDER=openai usa a mesma
+    # chave; com claude, defina AI_EMBEDDING_PROVIDER=openai e AI_EMBEDDING_API_KEY.
+    embedding_provider: str | None = None
+    embedding_api_key: SecretStr | None = None
     model_default: str | None = None
     model_guardian: str | None = None
     model_personalizer: str | None = None

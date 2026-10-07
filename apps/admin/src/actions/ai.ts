@@ -57,3 +57,93 @@ export async function saveAiConfig(form: FormData): Promise<void> {
   revalidatePath("/ia");
   redirect(`/ia?ok=${encodeURIComponent("Modelos salvos.")}`);
 }
+
+// --- ✍️ Redator por canal ------------------------------------------------------------------
+export type ChannelCopy = {
+  id: number;
+  product_id: number;
+  channel: "site" | "mercadolivre" | "shopee" | "instagram";
+  title: string;
+  description: string;
+  bullets: string[];
+  keywords: string[];
+  hashtags: string[];
+  status: "rascunho" | "aprovado" | "descartado";
+  guardian_status: string;
+  issues: string[];
+  model: string | null;
+  title_max: number;
+};
+
+const errMsg = (error: unknown, fallback: string) => (error instanceof AdminApiError ? error.message : fallback);
+const lines = (f: FormData, k: string) =>
+  String(f.get(k) ?? "")
+    .split("\n")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+function backToProduct(productId: number, key: "ok" | "erro", msg: string): never {
+  revalidatePath(`/produtos/${productId}`);
+  redirect(`/produtos/${productId}?${key}=${encodeURIComponent(msg)}#textos`);
+}
+
+export async function generateCopy(productId: number, form: FormData): Promise<void> {
+  await requireSession();
+  const channels = form.getAll("channels").map(String);
+  try {
+    await api.post("/ai/channel-copy", { product_id: productId, channels });
+  } catch (error) {
+    backToProduct(productId, "erro", errMsg(error, "Falha ao falar com a IA."));
+  }
+  backToProduct(productId, "ok", "Textos gerados. Revise e aprove cada canal.");
+}
+
+export async function editCopy(productId: number, copyId: number, form: FormData): Promise<void> {
+  await requireSession();
+  try {
+    await api.patch(`/ai/channel-copy/${copyId}`, {
+      title: String(form.get("title") ?? "").trim(),
+      description: String(form.get("description") ?? "").trim(),
+      bullets: lines(form, "bullets"),
+      keywords: lines(form, "keywords"),
+      hashtags: lines(form, "hashtags"),
+    });
+  } catch (error) {
+    backToProduct(productId, "erro", errMsg(error, "Falha ao salvar o texto."));
+  }
+  backToProduct(productId, "ok", "Texto salvo e conferido de novo.");
+}
+
+export async function setCopyStatus(productId: number, copyId: number, status: "aprovado" | "descartado" | "rascunho"): Promise<void> {
+  await requireSession();
+  try {
+    await api.post(`/ai/channel-copy/${copyId}/status`, { status });
+  } catch (error) {
+    backToProduct(productId, "erro", errMsg(error, "Falha ao mudar o status."));
+  }
+  backToProduct(productId, "ok", status === "aprovado" ? "Texto aprovado." : `Texto: ${status}.`);
+}
+
+export async function applyCopy(productId: number, copyId: number): Promise<void> {
+  await requireSession();
+  try {
+    await api.post(`/ai/channel-copy/${copyId}/apply`, {});
+  } catch (error) {
+    backToProduct(productId, "erro", errMsg(error, "Falha ao aplicar."));
+  }
+  revalidatePath("/produtos");
+  backToProduct(productId, "ok", "Título e descrição da loja atualizados. O Guardião verificou de novo.");
+}
+
+// --- 🔎 Busca semântica --------------------------------------------------------------------
+export async function reindexSearch(): Promise<void> {
+  await requireSession();
+  let done = 0;
+  try {
+    ({ done } = await api.post<{ done: number }>("/ai/search/reindex", {}));
+  } catch (error) {
+    redirect(`/ia?erro=${encodeURIComponent(errMsg(error, "Falha ao indexar."))}`);
+  }
+  revalidatePath("/ia");
+  redirect(`/ia?ok=${encodeURIComponent(`${done} produto(s) indexado(s).`)}`);
+}

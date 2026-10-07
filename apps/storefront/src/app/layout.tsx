@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Space_Grotesk } from "next/font/google";
 import { brandThemeCss } from "@print3d/shared";
 import { currentCart } from "@/actions/cart";
+import { Assistant } from "@/components/assistant";
 import { Announcement, Footer, Header } from "@/components/shop";
 import { api } from "@/lib/api";
 import { storeApiOrNull, type Niche, type StoreSettings } from "@/lib/store";
@@ -38,6 +39,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <Header brand={brand.name} niches={niches ?? []} cartCount={cartCount} />
         <main className="flex-1">{children}</main>
         <Footer brand={brand.name} />
+        {settings?.assistant_enabled && <Assistant brand={brand.name} />}
       </body>
     </html>
   );

@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { saveAiConfig } from "@/actions/ai";
+import { reindexSearch, saveAiConfig } from "@/actions/ai";
 import { Flash } from "@/components/flash";
 import { Alert, Badge, Button, Card, Label, PageHeader, inputClass } from "@/components/ui";
-import { api } from "@/lib/admin-api";
+import { AdminApiError, api } from "@/lib/admin-api";
 
 export const metadata: Metadata = { title: "IA" };
 export const dynamic = "force-dynamic";
@@ -18,19 +18,32 @@ type Status = {
 const TASKS = [
   { key: "default", label: "Tarefas do dia a dia", hint: "✨ Enriquecer, Redator, sugestões" },
   { key: "guardian", label: "Guardião visual", hint: "análise de imagens; use um modelo forte" },
-  { key: "personalizer", label: "Personalizador", hint: "pedido em linguagem natural → parâmetros" },
-  { key: "embedding", label: "Busca semântica (embeddings)", hint: "Fase 6" },
+  { key: "personalizer", label: "Personalizador e assistente da loja", hint: "conversa com o cliente; vazio = usa o do dia a dia" },
+  { key: "embedding", label: "Busca semântica (embeddings)", hint: "busca por significado na loja e no assistente (OpenAI)" },
 ];
 
-export default async function IaPage({ searchParams }: { searchParams: Promise<{ ok?: string; erro?: string }> }) {
-  const status = await api.get<Status>("/ai/status");
+type SearchStatus = { enabled: boolean; model: string | null; products: number; indexed: number };
+type SearchTest = { max_distance: number; hits: { product_id: number; title: string; distance: number; shown: boolean }[] };
+
+export default async function IaPage({ searchParams }: { searchParams: Promise<{ ok?: string; erro?: string; q?: string }> }) {
+  const params = await searchParams;
+  const [status, search] = await Promise.all([api.get<Status>("/ai/status"), api.get<SearchStatus>("/ai/search/status")]);
+  let test: SearchTest | null = null;
+  let testError: string | null = null;
+  if (params.q && search.enabled) {
+    try {
+      test = await api.get<SearchTest>(`/ai/search/test?q=${encodeURIComponent(params.q)}`);
+    } catch (error) {
+      testError = error instanceof AdminApiError ? error.message : "Falha ao testar a busca.";
+    }
+  }
   return (
     <>
       <PageHeader
         title="Inteligência artificial"
         description="A chave e o fornecedor ficam no servidor (.env). Aqui você escolhe qual modelo da sua conta faz cada tarefa."
       />
-      <Flash {...await searchParams} />
+      <Flash ok={params.ok} erro={params.erro} />
       <div className="mb-6 flex flex-wrap gap-2">
         <Badge tone={status.configured ? "ok" : "danger"}>{status.configured ? "chave configurada" : "sem chave"}</Badge>
         <Badge>fornecedor: {status.provider}</Badge>
@@ -62,6 +75,44 @@ export default async function IaPage({ searchParams }: { searchParams: Promise<{
             </Button>
           </div>
         </form>
+      </Card>
+
+      <Card title="🔎 Busca por significado" className="mt-6">
+        {!search.enabled ? (
+          <p className="text-sm text-muted">
+            Desligada: escolha o modelo de embedding acima (precisa de chave OpenAI; com Claude, defina AI_EMBEDDING_PROVIDER=openai e
+            AI_EMBEDDING_API_KEY no servidor). Enquanto isso a loja busca por palavras.
+          </p>
+        ) : (
+          <>
+            <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
+              <Badge tone={search.indexed === search.products ? "ok" : "warn"}>
+                {search.indexed} de {search.products} produtos indexados
+              </Badge>
+              <Badge>{search.model}</Badge>
+              <form action={reindexSearch} className="ml-auto">
+                <Button variant="secondary">Indexar agora</Button>
+              </form>
+            </div>
+            <p className="mb-3 text-xs text-muted">Produto novo ou editado entra na busca sozinho em até 5 minutos.</p>
+            <form className="flex gap-2">
+              <input name="q" defaultValue={params.q ?? ""} placeholder="ex.: presente para madrinha de batismo" className={inputClass} />
+              <Button type="submit">Testar</Button>
+            </form>
+            {testError && <Alert tone="error">{testError}</Alert>}
+            {test && (
+              <ul className="mt-4 space-y-1 text-sm">
+                {test.hits.length === 0 && <li className="text-muted">Nada parecido no catálogo à venda.</li>}
+                {test.hits.map((h) => (
+                  <li key={h.product_id} className={h.shown ? "" : "text-muted line-through"}>
+                    {h.title} <span className="text-xs text-muted">distância {h.distance}</span>
+                  </li>
+                ))}
+                <li className="pt-2 text-xs text-muted">Riscados ficam fora da loja (distância acima de {test.max_distance}).</li>
+              </ul>
+            )}
+          </>
+        )}
       </Card>
     </>
   );

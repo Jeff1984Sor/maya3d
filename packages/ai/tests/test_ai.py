@@ -18,9 +18,7 @@ class _FakeLLM:
 
 
 class _FakeEmbed:
-    dimensions = 3
-
-    async def embed(self, texts: Sequence[str]) -> list[list[float]]:
+    async def embed(self, texts: Sequence[str], *, model: str) -> list[list[float]]:
         return [[0.0, 0.0, 0.0] for _ in texts]
 
 

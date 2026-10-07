@@ -1,27 +1,26 @@
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from print3d_ai import AINotConfiguredError, AIOutputError, AIRefusedError
+from print3d_ai.prompts import channel_copy
 from print3d_api.db.session import get_session
-from print3d_api.models import AIConfig
+from print3d_api.deps import get_ai_factory, get_embedder_factory
+from print3d_api.models import AIConfig, Product
 from print3d_api.models.ai import AI_CONFIG_ID
-from print3d_api.services import ai, audit
+from print3d_api.services import ai, audit, copywriter, search
 from print3d_api.services.guardian import UnknownNicheError
 
 router = APIRouter(prefix="/ai", tags=["admin: IA"])
 Session = Annotated[AsyncSession, Depends(get_session)]
 
 
-def get_ai_factory(request: Request) -> ai.ProviderFactory:
-    factory: ai.ProviderFactory = getattr(request.app.state, "ai_factory", ai.default_factory)
-    return factory
-
-
 Factory = Annotated[ai.ProviderFactory, Depends(get_ai_factory)]
+Embedders = Annotated[search.EmbedderFactory, Depends(get_embedder_factory)]
 
 
 class AIConfigIn(BaseModel):
@@ -61,6 +60,33 @@ async def put_config(payload: AIConfigIn, session: Session, factory: Factory) ->
     return await ai.status(session, factory)
 
 
+def _ai_http(exc: Exception) -> HTTPException:
+    """Erros de IA → HTTP com mensagem útil para o painel."""
+    if isinstance(exc, AINotConfiguredError):
+        return HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc))
+    if isinstance(exc, RuntimeError):  # modelo não escolhido
+        return HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE, f"{exc}: escolha o modelo no painel (IA)"
+        )
+    if isinstance(exc, AIRefusedError | UnknownNicheError):
+        return HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
+    if isinstance(exc, AIOutputError):
+        return HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc))
+    return HTTPException(
+        status.HTTP_502_BAD_GATEWAY, f"o fornecedor de IA recusou a chamada: {exc}"
+    )
+
+
+AI_ERRORS: tuple[type[Exception], ...] = (
+    AINotConfiguredError,
+    RuntimeError,
+    AIRefusedError,
+    UnknownNicheError,
+    AIOutputError,
+    *ai.PROVIDER_ERRORS,
+)
+
+
 @router.post("/enrich-product", response_model=ai.EnrichResult)
 async def enrich_product(payload: EnrichIn, session: Session, factory: Factory) -> ai.EnrichResult:
     """✨ Poucas palavras → sugestão completa (só sugestão: o painel mostra e o dono aceita)."""
@@ -68,17 +94,149 @@ async def enrich_product(payload: EnrichIn, session: Session, factory: Factory) 
         return await ai.enrich(
             session, factory, hint=payload.hint, niche_slug=payload.niche, category=payload.category
         )
-    except AINotConfiguredError as exc:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
-    except RuntimeError as exc:  # modelo não escolhido
+    except AI_ERRORS as exc:
+        raise _ai_http(exc) from exc
+
+
+# --- ✍️ Redator por canal -------------------------------------------------------------------
+class CopyIn(BaseModel):
+    product_id: int
+    channels: list[Literal["site", "mercadolivre", "shopee", "instagram"]] = Field(min_length=1)
+
+
+class CopyPatch(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=5000)
+    bullets: list[str] | None = None
+    keywords: list[str] | None = None
+    hashtags: list[str] | None = None
+
+
+class CopyStatusIn(BaseModel):
+    status: Literal["aprovado", "descartado", "rascunho"]
+
+
+class CopyOut(BaseModel):
+    model_config = {"from_attributes": True}
+    id: int
+    product_id: int
+    channel: str
+    title: str
+    description: str
+    bullets: list[str]
+    keywords: list[str]
+    hashtags: list[str]
+    status: str
+    guardian_status: str
+    issues: list[str]
+    model: str | None
+    title_max: int = 0
+
+    @classmethod
+    def of(cls, row: Any) -> "CopyOut":
+        out = cls.model_validate(row)
+        profile = channel_copy.PROFILES.get(row.channel)
+        out.title_max = profile.title_max if profile else 0
+        return out
+
+
+def _copy_http(exc: copywriter.CopyError) -> HTTPException:
+    code = status.HTTP_404_NOT_FOUND if exc.not_found else status.HTTP_422_UNPROCESSABLE_ENTITY
+    return HTTPException(code, str(exc))
+
+
+@router.post("/channel-copy", response_model=list[CopyOut])
+async def generate_copy(payload: CopyIn, session: Session, factory: Factory) -> list[CopyOut]:
+    """Gera (ou refaz) os textos dos canais pedidos. Ficam como rascunho até o dono aprovar."""
+    try:
+        rows = await copywriter.generate(session, factory, payload.product_id, payload.channels)
+    except copywriter.CopyError as exc:
+        raise _copy_http(exc) from exc
+    except AI_ERRORS as exc:
+        raise _ai_http(exc) from exc
+    return [CopyOut.of(r) for r in rows]
+
+
+@router.get("/channel-copy", response_model=list[CopyOut])
+async def list_copy(session: Session, product_id: int) -> list[CopyOut]:
+    return [CopyOut.of(r) for r in await copywriter.list_for(session, product_id)]
+
+
+@router.patch("/channel-copy/{copy_id}", response_model=CopyOut)
+async def edit_copy(copy_id: int, payload: CopyPatch, session: Session) -> CopyOut:
+    try:
+        row = await copywriter.edit(session, copy_id, payload.model_dump(exclude_none=True))
+    except copywriter.CopyError as exc:
+        raise _copy_http(exc) from exc
+    return CopyOut.of(row)
+
+
+@router.post("/channel-copy/{copy_id}/status", response_model=CopyOut)
+async def copy_status(copy_id: int, payload: CopyStatusIn, session: Session) -> CopyOut:
+    try:
+        row = await copywriter.set_status(session, copy_id, payload.status)
+    except copywriter.CopyError as exc:
+        raise _copy_http(exc) from exc
+    return CopyOut.of(row)
+
+
+@router.post("/channel-copy/{copy_id}/apply")
+async def apply_copy(copy_id: int, session: Session) -> dict[str, Any]:
+    """Texto da loja aprovado → produto (o Guardião verifica de novo)."""
+    try:
+        product = await copywriter.apply_to_product(session, copy_id)
+    except copywriter.CopyError as exc:
+        raise _copy_http(exc) from exc
+    return {"product_id": product.id, "title": product.title, "guardian": product.guardian_status}
+
+
+# --- 🔎 Busca semântica ----------------------------------------------------------------------
+@router.get("/search/status")
+async def search_status(session: Session, embedders: Embedders) -> dict[str, Any]:
+    return await search.index_status(session, embedders)
+
+
+@router.post("/search/reindex")
+async def search_reindex(session: Session, embedders: Embedders) -> dict[str, Any]:
+    """Indexa agora (o indexador automático faz isso a cada poucos minutos)."""
+    try:
+        done = await search.reindex(session, embedders, limit=1000)
+    except AI_ERRORS as exc:
+        raise _ai_http(exc) from exc
+    return {**await search.index_status(session, embedders), "done": done}
+
+
+@router.get("/search/test")
+async def search_test(
+    request: Request,
+    session: Session,
+    embedders: Embedders,
+    q: Annotated[str, Query(min_length=2, max_length=120)],
+) -> dict[str, Any]:
+    """Testa a busca por significado: o que a loja mostraria e a distância de cada um."""
+    settings = request.app.state.settings
+    hits = await search.semantic_hits(session, embedders, q, max_distance=2.0, limit=20)
+    if hits is None:
         raise HTTPException(
-            status.HTTP_503_SERVICE_UNAVAILABLE, f"{exc}: escolha o modelo no painel (IA)"
-        ) from exc
-    except (AIRefusedError, UnknownNicheError) as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
-    except AIOutputError as exc:
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc)) from exc
-    except ai.PROVIDER_ERRORS as exc:
-        raise HTTPException(
-            status.HTTP_502_BAD_GATEWAY, f"o fornecedor de IA recusou a chamada: {exc}"
-        ) from exc
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "busca semântica desligada: escolha o modelo de embedding no painel (IA)",
+        )
+    titles = dict(
+        (
+            await session.execute(
+                select(Product.id, Product.title).where(Product.id.in_([pid for pid, _ in hits]))
+            )
+        ).all()
+    )
+    return {
+        "max_distance": settings.semantic_max_distance,
+        "hits": [
+            {
+                "product_id": pid,
+                "title": titles.get(pid, ""),
+                "distance": round(d, 3),
+                "shown": d <= settings.semantic_max_distance,
+            }
+            for pid, d in hits
+        ],
+    }
