@@ -123,7 +123,22 @@ async def download(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
     if not path.is_file():
         raise HTTPException(status.HTTP_404_NOT_FOUND, "arquivo não existe")
-    media = {".stl": "model/stl", ".zip": "application/zip", ".json": "application/json"}.get(
-        path.suffix, "application/octet-stream"
+    suffix = path.suffix.lower()
+    images = {
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".webp": "image/webp",
+    }
+    media = {
+        ".stl": "model/stl",
+        ".3mf": "model/3mf",
+        ".zip": "application/zip",
+        ".json": "application/json",
+        **images,
+    }.get(suffix, "application/octet-stream")
+    # imagem abre na tela (capa da Biblioteca); o resto baixa
+    disposition = "inline" if suffix in images else "attachment"
+    return FileResponse(
+        path, media_type=media, filename=path.name, content_disposition_type=disposition
     )
-    return FileResponse(path, media_type=media, filename=path.name)

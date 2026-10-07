@@ -9,6 +9,7 @@ const TOOLS = [
   { href: "/pedidos", label: "Pedidos" },
   { href: "/fila", label: "Fila de impressão" },
   { href: "/produtos", label: "Produtos" },
+  { href: "/biblioteca", label: "Biblioteca de modelos" },
   { href: "/parametricos", label: "Paramétricos" },
   { href: "/dividir", label: "Dividir peça grande" },
   { href: "/foto", label: "Foto vira peça" },

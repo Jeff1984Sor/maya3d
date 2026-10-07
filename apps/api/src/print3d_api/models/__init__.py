@@ -5,6 +5,7 @@ from print3d_api.models.brand import BrandSettings
 from print3d_api.models.catalog import Design, Product, Variant
 from print3d_api.models.governance import AuditLog, GuardianTermOverride, License, Niche
 from print3d_api.models.integrations import IntegrationSetting
+from print3d_api.models.library import LibraryCollection, LibraryModel
 from print3d_api.models.orders import (
     Cart,
     Customer,
@@ -33,6 +34,8 @@ __all__ = [
     "GuardianTermOverride",
     "InboundMessage",
     "IntegrationSetting",
+    "LibraryCollection",
+    "LibraryModel",
     "License",
     "Material",
     "Niche",

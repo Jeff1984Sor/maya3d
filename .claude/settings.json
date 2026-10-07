@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -)",
+      "Bash(python -m uv run ruff check . --fix -q)",
+      "Bash(python -m uv run ruff format . -q)",
+      "Bash(python -m uv run ruff check . --output-format concise)",
+      "Bash(python -m uv run python -m mypy apps/api/src apps/worker/src packages/mesh/src)",
+      "Bash(python -m uv run ruff check . -q)",
+      "Bash(python -m uv run python -m pytest packages/mesh/tests/test_library.py apps/worker/tests/test_library_job.py -q -p no:cacheprovider)",
+      "Bash(python -m uv run python -m pytest packages/mesh/tests/test_library.py -q -p no:cacheprovider)",
+      "Bash(python -m uv run python -m pytest -q -p no:cacheprovider)",
+      "Bash(npx -y pnpm@9.15.0 -r --filter ./apps/admin lint)",
+      "Bash(npx -y pnpm@9.15.0 -r --filter ./apps/admin typecheck)",
+      "Bash(python -m uv run ruff format --check .)",
+      "Bash(python -m uv run python -m mypy apps/api/src apps/worker/src packages/core/src packages/ai/src packages/channels/src packages/notify/src packages/mesh/src packages/social/src)",
+      "Bash(python tools/check_brand.py)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)"
+    ]
+  }
+}
