@@ -10,6 +10,7 @@ class WorkerSettings(BaseSettings):
     log_level: str = "INFO"
     release: str = "dev"
     files_dir: str = "/data/files"  # volume compartilhado com a API
+    photo_retention_days: int = 30  # LGPD: fotos enviadas são apagadas depois disso
 
 
 @lru_cache

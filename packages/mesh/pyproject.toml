@@ -13,6 +13,7 @@ dependencies = [
     "shapely>=2.0",  # seções planas (onde há material no corte)
     "scipy>=1.13",  # usado pelo trimesh nas seções planas
     "rtree>=1.3",  # seções com furos internos (peças ocas)
+    "pillow>=11.0",  # foto vira peça
 ]
 # Próximas partes: manifold3d (reparo/booleanas), build123d (paramétricos). Blender e fatiador
 # rodam em containers próprios.

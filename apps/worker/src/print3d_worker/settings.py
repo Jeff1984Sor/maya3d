@@ -8,6 +8,7 @@ from arq.connections import RedisSettings
 
 from print3d_worker.config import get_worker_settings
 from print3d_worker.jobs.parametric import generate_parametric
+from print3d_worker.jobs.photo import photo_to_part, purge_old_photos
 from print3d_worker.jobs.split import split_model
 from print3d_worker.jobs.system import heartbeat, ping
 
@@ -24,8 +25,11 @@ async def on_shutdown(ctx: dict[str, Any]) -> None:
 
 
 class ArqSettings:
-    functions: ClassVar[list[Any]] = [ping, generate_parametric, split_model]
-    cron_jobs: ClassVar[list[Any]] = [cron(heartbeat, second=0)]  # todo minuto
+    functions: ClassVar[list[Any]] = [ping, generate_parametric, split_model, photo_to_part]
+    cron_jobs: ClassVar[list[Any]] = [
+        cron(heartbeat, second=0),  # todo minuto
+        cron(purge_old_photos, hour=4, minute=10),  # LGPD, diário
+    ]
     on_startup = on_startup
     on_shutdown = on_shutdown
     redis_settings = RedisSettings.from_dsn(get_worker_settings().redis_url)
