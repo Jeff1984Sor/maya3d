@@ -20,7 +20,7 @@ Especificação completa: [docs/especificacao/prompt-impressao3d.md](docs/especi
 | `apps/api` | FastAPI (rotas, modelos SQLAlchemy, migrações Alembic em `migrations/`) |
 | `apps/worker` | jobs arq (heartbeat/ping hoje) |
 | `apps/storefront`, `apps/admin` | Next.js 15 + Tailwind 4 (tokens em `packages/shared`) |
-| `apps/mobile` | Expo — só na Fase 6.5 (README de plano) |
+| `apps/mobile` | Expo SDK 57 (app Android/iOS): loja, carrinho, checkout Pix, pedidos; build EAS por tag `app-v*` |
 | `packages/core` | nichos, canais, TokenVault |
 | `packages/{ai,channels,notify,mesh,social}` | contratos (Protocols) dos provedores |
 | `packages/shared` | TS: tokens, tema seguro da marca, cliente da API |

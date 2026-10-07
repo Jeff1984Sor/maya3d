@@ -20,6 +20,7 @@ atrás de um Provider, com testes de contrato e estado "não configurado" visív
 | 8c | CMS: fotos de produto, marca (nome/cores/logo), página inicial (aviso, destaque, vitrines) e páginas institucionais no painel | ✅ v0.10 |
 | 8d | Frete automático (Melhor Envio): Correios/transportadoras no carrinho e no checkout, recotado no servidor; token em Integrações, CEP de origem em Operação | ✅ v0.11 |
 | 8e | Guardião visual: IA olha cada foto (personagem, marca, logo, time, pessoa real, qualidade); bloqueio por regra fixa; dono libera com motivo auditado | ✅ v0.12 |
+| 8f | App Android/iOS (Expo SDK 57): início, busca, assistente, produto, carrinho, frete, checkout Pix, pedidos; EAS por tag (contas e domínio para publicar) | ✅ v0.13 |
 | 9 | Mercado Livre e Shopee (OAuth, publicação, pedidos, perguntas) | |
 | 10 | Fatiador e renders em containers; CMS; conteúdo/MayaPost; app Expo; Analista | |
 

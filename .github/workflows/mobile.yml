@@ -1,0 +1,47 @@
+name: App (EAS)
+
+# Build e envio do app nas lojas, 100% na nuvem (EAS). Dispara por tag app-vX.Y.Z.
+# Pré-requisitos (uma vez): conta Expo + `eas init` (EAS_PROJECT_ID), secrets EXPO_TOKEN,
+# APP_ID e EXPO_PUBLIC_API_URL (https://api.<domínio>). Sem EXPO_TOKEN o job só avisa.
+on:
+  push:
+    tags: ["app-v*"]
+  workflow_dispatch:
+
+concurrency:
+  group: mobile-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build Android + iOS e envio para teste
+    runs-on: ubuntu-latest
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EAS_PROJECT_ID: ${{ secrets.EAS_PROJECT_ID }}
+      APP_ID: ${{ secrets.APP_ID }}
+      APP_NAME: ${{ secrets.APP_NAME }}
+      EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}
+    steps:
+      - name: Conferir credenciais
+        id: creds
+        run: |
+          if [ -z "$EXPO_TOKEN" ] || [ -z "$EAS_PROJECT_ID" ]; then
+            echo "::warning::EXPO_TOKEN/EAS_PROJECT_ID não configurados: build do app pulado"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.creds.outputs.ok == 'true'
+      - uses: pnpm/action-setup@v4
+        if: steps.creds.outputs.ok == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.creds.outputs.ok == 'true'
+        with: { node-version: 22, cache: pnpm }
+      - if: steps.creds.outputs.ok == 'true'
+        run: pnpm install --frozen-lockfile
+      - name: Build na nuvem e envio para teste interno (Play) / TestFlight (iOS)
+        if: steps.creds.outputs.ok == 'true'
+        working-directory: apps/mobile
+        run: npx eas-cli@latest build --platform all --profile production --non-interactive --auto-submit --no-wait

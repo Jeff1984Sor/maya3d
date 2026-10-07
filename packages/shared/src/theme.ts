@@ -24,3 +24,19 @@ export function brandThemeCss(colors: BrandPublic["colors"]): string {
     .filter(Boolean)
     .join("");
 }
+
+/** Paleta padrão (igual ao tokens.css), para quem não usa CSS — ex.: o app Expo. */
+export const DEFAULT_TOKENS: Record<"light" | "dark", Record<(typeof TOKEN_NAMES)[number], string>> = {
+  light: { bg: "#f7f4ef", surface: "#ffffff", ink: "#1e1e24", muted: "#6b7280", primary: "#ff6b2c", secondary: "#14b8a6", border: "#e7e2da" },
+  dark: { bg: "#141418", surface: "#1e1e24", ink: "#f7f4ef", muted: "#9ca3af", primary: "#ff6b2c", secondary: "#14b8a6", border: "#2e2e36" },
+};
+
+/** Paleta efetiva: padrão + cores válidas da marca (mesma validação de chave e hex). */
+export function brandPalette(colors: BrandPublic["colors"], mode: "light" | "dark"): Record<(typeof TOKEN_NAMES)[number], string> {
+  const out = { ...DEFAULT_TOKENS[mode] };
+  for (const name of TOKEN_NAMES) {
+    const value = colors[mode]?.[name];
+    if (value !== undefined && HEX.test(value)) out[name] = value;
+  }
+  return out;
+}

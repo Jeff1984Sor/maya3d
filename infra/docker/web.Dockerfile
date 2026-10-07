@@ -8,6 +8,8 @@ COPY package.json pnpm-workspace.yaml pnpm-lock.yam[l] ./
 COPY packages/shared packages/shared
 COPY apps/storefront apps/storefront
 COPY apps/admin apps/admin
+# app Expo: só o manifesto, para o workspace bater com o lockfile (não é instalado aqui)
+COPY apps/mobile/package.json apps/mobile/package.json
 # Workspace completo (para o lockfile bater); só o app pedido é buildado.
 RUN if [ -f pnpm-lock.yaml ]; then F=--frozen-lockfile; else F=--no-frozen-lockfile; fi \
  && pnpm install $F --filter "@print3d/${APP}..." \

@@ -100,3 +100,10 @@ jobs:
       - run: pnpm build
         env:
           NEXT_TELEMETRY_DISABLED: "1"
+      # App Expo: empacota o JavaScript para Android (pega import quebrado e dependência
+      # incompatível sem precisar de celular). O build nativo é no EAS (mobile.yml).
+      - name: App — empacotar (expo export)
+        working-directory: apps/mobile
+        run: npx expo export --platform android --output-dir "$RUNNER_TEMP/app-export"
+        env:
+          EXPO_NO_TELEMETRY: "1"
