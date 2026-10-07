@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { clearIntegration, generateIntegration, saveIntegrations, testWhatsapp, type IntegrationField } from "@/actions/integrations";
 import { Flash } from "@/components/flash";
+import { RobotToken } from "@/components/robot-token";
 import { Badge, Button, Card, Label, PageHeader, inputClass } from "@/components/ui";
 import { api } from "@/lib/admin-api";
 
@@ -80,7 +81,10 @@ function FieldInput({ f }: { f: IntegrationField }) {
 }
 
 export default async function IntegracoesPage({ searchParams }: { searchParams: Promise<{ ok?: string; erro?: string }> }) {
-  const fields = await api.get<IntegrationField[]>("/integrations");
+  const [fields, robot] = await Promise.all([
+    api.get<IntegrationField[]>("/integrations"),
+    api.get<{ active: boolean; expires_at: string | null }>("/integrations/robot-token"),
+  ]);
   return (
     <>
       <PageHeader
@@ -133,6 +137,7 @@ export default async function IntegracoesPage({ searchParams }: { searchParams: 
             </Card>
           );
         })}
+        <RobotToken active={robot.active} expiresAt={robot.expires_at} />
       </div>
     </>
   );

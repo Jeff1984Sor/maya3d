@@ -73,3 +73,21 @@ export async function testWhatsapp(): Promise<void> {
   if (result?.status === "enviado") back("ok", "Mensagem de teste enviada para o seu WhatsApp.");
   back("erro", `A Meta recusou: ${result?.error ?? "erro desconhecido"}`);
 }
+
+// --- Token de robô ---------------------------------------------------------------------------
+export async function issueRobotToken(): Promise<{ token: string; expires_at: string } | { error: string }> {
+  await requireSession();
+  try {
+    const res = await api.post<{ token: string; expires_at: string }>("/integrations/robot-token", {});
+    revalidatePath("/integracoes");
+    return res;
+  } catch (e) {
+    return { error: errMsg(e, "Falha ao gerar o token.") };
+  }
+}
+
+export async function revokeRobotToken(): Promise<void> {
+  await requireSession();
+  await api.delete("/integrations/robot-token");
+  revalidatePath("/integracoes");
+}

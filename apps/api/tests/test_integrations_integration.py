@@ -122,3 +122,17 @@ def test_whatsapp_pelo_painel(client: TestClient) -> None:
         params={"hub.mode": "subscribe", "hub.verify_token": "verifica", "hub.challenge": "7"},
     )
     assert ok.text == "7"
+
+
+def test_token_de_robo(client: TestClient) -> None:
+    assert (
+        client.get("/v1/admin/integrations", headers={"x-robot-token": "rb_x"}).status_code == 401
+    )
+    issued = client.post("/v1/admin/integrations/robot-token", headers=H).json()
+    robot = {"x-robot-token": issued["token"]}
+    assert issued["token"].startswith("rb_")
+    assert client.get("/v1/admin/integrations", headers=robot).status_code == 200
+    assert issued["token"] not in client.get("/v1/admin/integrations", headers=H).text
+    assert client.get("/v1/admin/integrations/robot-token", headers=H).json()["active"] is True
+    client.delete("/v1/admin/integrations/robot-token", headers=H)
+    assert client.get("/v1/admin/integrations", headers=robot).status_code == 401

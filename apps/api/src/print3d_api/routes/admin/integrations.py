@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from print3d_api.db.session import get_session
-from print3d_api.services import integrations, notifications, whatsapp
+from print3d_api.services import integrations, notifications, robot, whatsapp
 from print3d_notify.meta import MetaWhatsAppProvider
 
 router = APIRouter(prefix="/integrations", tags=["admin: integrações"])
@@ -66,3 +66,24 @@ async def whatsapp_test(request: Request, session: Session) -> dict[str, Any]:
     await whatsapp.dispatch_pending(session, MetaWhatsAppProvider(wa), limit=50)
     await session.refresh(note)
     return {"status": note.status, "error": note.last_error}
+
+
+# --- Token de robô (automações do dono) ------------------------------------------------------
+@router.get("/robot-token")
+async def robot_status(session: Session) -> dict[str, Any]:
+    return await robot.status(session)
+
+
+@router.post("/robot-token")
+async def robot_issue(session: Session) -> dict[str, str]:
+    """Gera (ou troca) o token. Ele só aparece nesta resposta: guarde na hora."""
+    try:
+        token, expires = await robot.issue(session)
+    except robot.RobotError as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
+    return {"token": token, "expires_at": expires.isoformat()}
+
+
+@router.delete("/robot-token", status_code=204)
+async def robot_revoke(session: Session) -> None:
+    await robot.revoke(session)
