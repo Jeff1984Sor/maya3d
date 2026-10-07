@@ -14,16 +14,26 @@ runs:
   steps:
     - name: Preparar SSH
       shell: bash
+      env:
+        SSH_KEY: ${{ inputs.ssh-key }}
+        SSH_KNOWN_HOSTS: ${{ inputs.ssh-known-hosts }}
       run: |
         install -m 700 -d ~/.ssh
-        printf '%s\n' "${{ inputs.ssh-key }}" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
-        printf '%s\n' "${{ inputs.ssh-known-hosts }}" > ~/.ssh/known_hosts
+        # Aceita a chave em texto (BEGIN OPENSSH...) ou em base64 numa linha só (mais fácil de copiar).
+        if grep -q "BEGIN" <<<"$SSH_KEY"; then
+          printf '%s\n' "$SSH_KEY" | tr -d '\r' > ~/.ssh/deploy_key
+        else
+          printf '%s' "$SSH_KEY" | tr -d ' \r\n' | base64 -d > ~/.ssh/deploy_key
+        fi
+        chmod 600 ~/.ssh/deploy_key
+        ssh-keygen -y -f ~/.ssh/deploy_key >/dev/null || { echo "::error::SSH_KEY inválida (cole de novo o secret)"; exit 1; }
+        printf '%s\n' "$SSH_KNOWN_HOSTS" | tr -d '\r' > ~/.ssh/known_hosts
 
     - name: Enviar infra/ e ops/
       shell: bash
       run: |
         tar czf bundle.tgz infra ops
-        SSH="ssh -i ~/.ssh/deploy_key ${{ inputs.ssh-user }}@${{ inputs.ssh-host }}"
+        SSH="ssh -o BatchMode=yes -i ~/.ssh/deploy_key ${{ inputs.ssh-user }}@${{ inputs.ssh-host }}"
         scp -i ~/.ssh/deploy_key bundle.tgz "${{ inputs.ssh-user }}@${{ inputs.ssh-host }}:/tmp/print3d-bundle.tgz"
         $SSH 'tar xzf /tmp/print3d-bundle.tgz -C /srv/print3d && rm /tmp/print3d-bundle.tgz'
 

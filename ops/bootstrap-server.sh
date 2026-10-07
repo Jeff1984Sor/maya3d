@@ -49,9 +49,10 @@ if sudo -u postgres psql -Atc "select 1 from pg_database where datname='${DB}'" 
 else
   [[ -f "${STACK_DIR}/.dbpass.tmp" ]] || die "banco não existe e não há senha gerada; crie manualmente"
   log "criando role e banco ${DB}"
-  sudo -u postgres psql -v ON_ERROR_STOP=1 \
-    -c "CREATE ROLE ${ROLE} LOGIN PASSWORD '$(cat "${STACK_DIR}/.dbpass.tmp")'" \
-    -c "CREATE DATABASE ${DB} OWNER ${ROLE}"
+  # SQL via stdin: a senha nunca aparece na linha de comando (o sudo grava argv no auth.log)
+  printf "CREATE ROLE %s LOGIN PASSWORD '%s';\nCREATE DATABASE %s OWNER %s;\n" \
+    "$ROLE" "$(cat "${STACK_DIR}/.dbpass.tmp")" "$DB" "$ROLE" \
+    | sudo -u postgres psql -v ON_ERROR_STOP=1 -q
 fi
 rm -f "${STACK_DIR}/.dbpass.tmp"
 
