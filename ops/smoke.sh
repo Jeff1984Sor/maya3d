@@ -24,7 +24,7 @@ fi
 # check <nome> <url> [padrão que deve aparecer no corpo]
 check() {
   local name="$1" url="$2" pattern="${3:-}" body
-  for attempt in $(seq 1 24); do
+  for _ in $(seq 1 24); do
     if body="$(curl -fsS --max-time 8 "$url" 2>/dev/null)" && { [[ -z "$pattern" ]] || grep -q "$pattern" <<<"$body"; }; then
       log "OK   ${name}"; return 0
     fi

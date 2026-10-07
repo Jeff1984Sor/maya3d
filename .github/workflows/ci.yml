@@ -76,7 +76,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 22, cache: pnpm }
+        with:
+          node-version: 22
+          # sem lockfile ainda (1ª execução): cache do pnpm exigiria o arquivo
+          cache: ${{ hashFiles('pnpm-lock.yaml') != '' && 'pnpm' || '' }}
       - name: Dependências
         run: pnpm install ${{ hashFiles('pnpm-lock.yaml') != '' && '--frozen-lockfile' || '--no-frozen-lockfile' }}
       - name: Publicar pnpm-lock.yaml gerado (commitar na primeira vez)
