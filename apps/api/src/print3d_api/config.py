@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     cors_origins: list[str] = []
     brand_cache_ttl_seconds: float = 60.0
 
+    # Rotas /v1/admin/* exigem o header X-Admin-Token. Sem token configurado, ficam desligadas.
+    admin_api_token: SecretStr | None = None
+    max_upload_mb: int = 50
+
 
 @lru_cache
 def get_settings() -> Settings:

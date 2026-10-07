@@ -9,6 +9,8 @@ from pydantic import BaseModel, Field
 class MeshReport(BaseModel):
     bbox_mm: tuple[float, float, float]
     volume_mm3: float = Field(ge=0)
+    area_mm2: float = Field(ge=0, default=0)
+    triangles: int = Field(ge=0, default=0)
     watertight: bool
     min_wall_mm: float | None = None
     issues: list[str] = []

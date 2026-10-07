@@ -27,6 +27,7 @@ if [[ ! -f "${STACK_DIR}/.env" ]]; then
   sed -e "s#postgresql+psycopg://[^@]*@#postgresql+psycopg://${ROLE}:${DB_PASS}@#" \
       -e "s#/print3d_staging#/${DB}#" \
       -e "s#^FERNET_KEY=.*#FERNET_KEY=${FERNET}#" \
+      -e "s#^ADMIN_API_TOKEN=.*#ADMIN_API_TOKEN=$(openssl rand -hex 32)#" \
       "$(dirname "$0")/../infra/compose/env/server.env.example" > "${STACK_DIR}/.env"
   # modo IP (ADR 0007): detecta o IP externo (metadata do GCP) e monta o CORS com as portas da stack
   # shellcheck disable=SC1090
