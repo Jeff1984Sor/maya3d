@@ -4,6 +4,8 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+from arq import create_pool
+from arq.connections import RedisSettings
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from redis.asyncio import Redis
@@ -28,10 +30,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         redis: Redis = Redis.from_url(settings.redis_url)
         app.state.session_factory = create_session_factory(engine)
         app.state.health_checker = HealthChecker(engine, redis)
+        app.state.queue = await create_pool(RedisSettings.from_dsn(settings.redis_url))
         log.info("api iniciada", extra={"release": settings.release, "env": settings.environment})
         try:
             yield
         finally:
+            await app.state.queue.aclose()
             await redis.aclose()
             await engine.dispose()
 

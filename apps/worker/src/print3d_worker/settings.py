@@ -7,6 +7,7 @@ from arq import cron
 from arq.connections import RedisSettings
 
 from print3d_worker.config import get_worker_settings
+from print3d_worker.jobs.parametric import generate_parametric
 from print3d_worker.jobs.system import heartbeat, ping
 
 log = logging.getLogger("print3d.worker")
@@ -22,7 +23,7 @@ async def on_shutdown(ctx: dict[str, Any]) -> None:
 
 
 class ArqSettings:
-    functions: ClassVar[list[Any]] = [ping]
+    functions: ClassVar[list[Any]] = [ping, generate_parametric]
     cron_jobs: ClassVar[list[Any]] = [cron(heartbeat, second=0)]  # todo minuto
     on_startup = on_startup
     on_shutdown = on_shutdown

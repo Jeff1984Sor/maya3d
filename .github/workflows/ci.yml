@@ -44,19 +44,23 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U postgres" --health-interval 5s
           --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-retries 10
     env:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/print3d
+      REDIS_URL: redis://localhost:6379/0
       RUN_DB_TESTS: "1"
     steps:
       - uses: actions/checkout@v4
+      - name: OpenSCAD (geração de paramétricos)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends openscad
       - uses: astral-sh/setup-uv@v5
         with: { enable-cache: true }
       - name: Dependências
-        run: uv sync --all-packages --group dev ${{ hashFiles('uv.lock') != '' && '--locked' || '' }}
-      - name: Publicar uv.lock gerado (commitar na primeira vez)
-        if: hashFiles('uv.lock') == ''
-        uses: actions/upload-artifact@v4
-        with: { name: uv-lock, path: uv.lock }
+        run: uv sync --all-packages --group dev --locked
       - name: Ruff (lint)
         run: uv run ruff check .
       - name: Ruff (formato)

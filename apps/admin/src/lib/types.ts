@@ -75,3 +75,11 @@ export interface AuditEntry {
   reason: string | null;
   payload: Record<string, unknown>;
 }
+
+export interface ModelInfo {
+  slug: string;
+  title: string;
+  niche: string;
+  description: string;
+  params_schema: { properties?: Record<string, Record<string, unknown>> };
+}

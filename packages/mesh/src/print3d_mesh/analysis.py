@@ -37,10 +37,11 @@ class TrimeshAnalyzer:
             raise MeshAnalysisError(f"arquivo ilegível: {exc}") from exc
         if not isinstance(mesh, trimesh.Trimesh) or len(mesh.faces) == 0:
             raise MeshAnalysisError("arquivo sem malha")
-        return _report(mesh)
+        return mesh_report(mesh)
 
 
-def _report(mesh: trimesh.Trimesh) -> MeshReport:
+def mesh_report(mesh: trimesh.Trimesh) -> MeshReport:
+    """Relatório de imprimibilidade de uma malha já carregada."""
     x, y, z = (round(float(v), 2) for v in mesh.extents)
     issues: list[str] = []
     watertight = bool(mesh.is_watertight)

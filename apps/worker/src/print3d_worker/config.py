@@ -9,6 +9,7 @@ class WorkerSettings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     log_level: str = "INFO"
     release: str = "dev"
+    files_dir: str = "/data/files"  # volume compartilhado com a API
 
 
 @lru_cache

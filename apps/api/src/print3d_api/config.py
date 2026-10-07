@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     # Rotas /v1/admin/* exigem o header X-Admin-Token. Sem token configurado, ficam desligadas.
     admin_api_token: SecretStr | None = None
     max_upload_mb: int = 50
+    files_dir: str = "/data/files"  # volume compartilhado com o worker (STL gerados etc.)
 
 
 @lru_cache

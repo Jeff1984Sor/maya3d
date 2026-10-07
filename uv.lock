@@ -986,6 +986,7 @@ version = "0.1.0"
 source = { editable = "apps/api" }
 dependencies = [
     { name = "alembic" },
+    { name = "arq" },
     { name = "fastapi" },
     { name = "pgvector" },
     { name = "print3d-core" },
@@ -1002,6 +1003,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "alembic", specifier = ">=1.14" },
+    { name = "arq", specifier = ">=0.26" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "pgvector", specifier = ">=0.3" },
     { name = "print3d-core", editable = "packages/core" },
@@ -1087,6 +1089,7 @@ source = { editable = "apps/worker" }
 dependencies = [
     { name = "arq" },
     { name = "print3d-core" },
+    { name = "print3d-mesh" },
     { name = "pydantic-settings" },
     { name = "redis" },
 ]
@@ -1095,6 +1098,7 @@ dependencies = [
 requires-dist = [
     { name = "arq", specifier = ">=0.26" },
     { name = "print3d-core", editable = "packages/core" },
+    { name = "print3d-mesh", editable = "packages/mesh" },
     { name = "pydantic-settings", specifier = ">=2.7" },
     { name = "redis", specifier = ">=5.2" },
 ]
