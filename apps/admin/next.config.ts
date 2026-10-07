@@ -7,6 +7,8 @@ const config: NextConfig = {
   transpilePackages: ["@print3d/shared"],
   poweredByHeader: false,
   reactStrictMode: true,
+  // uploads de STL pelo painel (o padrão do Next é 1 MB); a API limita de novo (MAX_UPLOAD_MB)
+  experimental: { serverActions: { bodySizeLimit: "50mb" } },
 };
 
 export default config;

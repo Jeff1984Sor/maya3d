@@ -10,6 +10,7 @@ const TOOLS = [
   { href: "/fila", label: "Fila de impressão" },
   { href: "/produtos", label: "Produtos" },
   { href: "/parametricos", label: "Paramétricos" },
+  { href: "/dividir", label: "Dividir peça grande" },
   { href: "/calculadora", label: "Calculadora de preço" },
   { href: "/comparativo", label: "Comparativo de materiais" },
   { href: "/guardiao", label: "Guardião" },

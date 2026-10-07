@@ -124,5 +124,7 @@ async def download(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
     if not path.is_file():
         raise HTTPException(status.HTTP_404_NOT_FOUND, "arquivo não existe")
-    media = "model/stl" if path.suffix == ".stl" else "application/octet-stream"
+    media = {".stl": "model/stl", ".zip": "application/zip", ".json": "application/json"}.get(
+        path.suffix, "application/octet-stream"
+    )
     return FileResponse(path, media_type=media, filename=path.name)
