@@ -65,7 +65,10 @@ for ext in vector pg_trgm unaccent; do
 done
 
 log "timers de backup (systemd)"
-sudo install -m 644 "$(dirname "$0")"/systemd/*.service "$(dirname "$0")"/systemd/*.timer /etc/systemd/system/
+for unit in "$(dirname "$0")"/systemd/*.service "$(dirname "$0")"/systemd/*.timer; do
+  # o usuário dos serviços é quem executa o bootstrap (deploy, mayacorp22...), não um nome fixo
+  sed "s/^User=.*/User=${USER}/" "$unit" | sudo tee "/etc/systemd/system/$(basename "$unit")" >/dev/null
+done
 sudo systemctl daemon-reload
 sudo systemctl enable --now "print3d-backup@${STACK}.timer"
 [[ "$STACK" == "staging" ]] && sudo systemctl enable --now "print3d-restore-test@${STACK}.timer"
