@@ -15,6 +15,7 @@ server {
     location / {
         proxy_pass http://print3d_${STACK}_storefront;
         include /etc/nginx/snippets/print3d-proxy.conf;
+        proxy_read_timeout 60s;
     }
 }
 

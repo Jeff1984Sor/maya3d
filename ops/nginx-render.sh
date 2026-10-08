@@ -38,7 +38,11 @@ sudo install -m 644 "${PRINT3D_ROOT}/infra/nginx/snippets/"*.conf /etc/nginx/sni
 envsubst '${STOREFRONT_HOST} ${ADMIN_HOST} ${API_HOST} ${STOREFRONT_PORT} ${ADMIN_PORT} ${API_PORT} ${STACK}' \
   < "${PRINT3D_ROOT}/infra/nginx/stack.conf.template" | sudo tee "$TARGET" >/dev/null
 sudo ln -sf "$TARGET" "/etc/nginx/sites-enabled/print3d-${STACK}.conf"
-sudo nginx -t
+if ! sudo nginx -t; then
+  # nunca deixa uma configuração quebrada ativa: os outros sites do servidor dependem do nginx
+  sudo rm -f "/etc/nginx/sites-enabled/print3d-${STACK}.conf"
+  die "configuração inválida: desativada, nada foi recarregado"
+fi
 sudo systemctl reload nginx
 log "nginx configurado: ${STOREFRONT_HOST}, ${ADMIN_HOST}, ${API_HOST}"
 log "para HTTPS: sudo certbot --nginx -d ${STOREFRONT_HOST} -d ${ADMIN_HOST} -d ${API_HOST} --redirect"
