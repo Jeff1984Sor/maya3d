@@ -120,6 +120,7 @@ def test_corpo_do_anuncio() -> None:
     )
     assert len(body["title"]) == 60
     assert "family_name" not in body
+    assert "sale_terms" not in body  # sem prazo: pronta entrega
     assert body["currency_id"] == "BRL"
     assert body["pictures"] == [{"source": "https://loja.com/m/a.webp"}]
     assert json.dumps(body)  # serializável
@@ -135,6 +136,8 @@ def test_item_payload_user_products_usa_family_name_sem_title() -> None:
         pictures=["https://loja.com/m/a.webp"],
         attributes=[],
         user_products=True,
+        manufacturing_days=5,
     )
+    assert body["sale_terms"] == [{"id": "MANUFACTURING_TIME", "value_name": "5 dias"}]
     assert body["family_name"] == "Crucifixo de parede em impressão 3D"
     assert "title" not in body

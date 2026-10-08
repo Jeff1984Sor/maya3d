@@ -90,6 +90,12 @@ FIELDS: tuple[Field, ...] = (
     ),
     Field("ML_CLIENT_SECRET", "mercadolivre", "Chave secreta", secret=True),
     Field(
+        "ML_MANUFACTURING_DAYS",
+        "mercadolivre",
+        "Prazo de fabricação (dias)",
+        hint="sob encomenda: o ML mostra 'disponível em X dias'; vazio = pronta entrega",
+    ),
+    Field(
         "MP_ACCESS_TOKEN",
         "mercadopago",
         "Access Token",

@@ -245,6 +245,7 @@ def item_payload(
     pictures: list[str],
     attributes: list[dict[str, Any]],
     user_products: bool = False,
+    manufacturing_days: int | None = None,
 ) -> dict[str, Any]:
     """Corpo de POST /items. Fotos precisam ser URLs públicas (HTTPS, com domínio).
 
@@ -252,9 +253,15 @@ def item_payload(
     manda ``title`` — o ML gera o título a partir dele e dos atributos.
     """
     name = {"family_name": title[:60]} if user_products else {"title": title[:60]}
+    terms = (
+        {"sale_terms": [{"id": "MANUFACTURING_TIME", "value_name": f"{manufacturing_days} dias"}]}
+        if manufacturing_days
+        else {}
+    )
     return {
         "site_id": SITE,
         **name,
+        **terms,
         "category_id": category_id,
         "price": float(price),
         "currency_id": "BRL",

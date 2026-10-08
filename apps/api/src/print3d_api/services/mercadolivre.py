@@ -54,8 +54,21 @@ class MLError(Exception):
 
 async def _settings(session: AsyncSession) -> dict[str, str | None]:
     values = await integrations.load(session)
-    keys = ("ML_CLIENT_ID", "ML_CLIENT_SECRET", "PUBLIC_API_URL", "PUBLIC_STORE_URL")
+    keys = (
+        "ML_CLIENT_ID",
+        "ML_CLIENT_SECRET",
+        "PUBLIC_API_URL",
+        "PUBLIC_STORE_URL",
+        "ML_MANUFACTURING_DAYS",
+    )
     return {k: values.get(k) or integrations.env_value(k) for k in keys}
+
+
+async def manufacturing_days(session: AsyncSession) -> int | None:
+    """Prazo de fabricação (Integrações → Mercado Livre); o ML aceita até 45 dias."""
+    raw = ((await _settings(session))["ML_MANUFACTURING_DAYS"] or "").strip()
+    days = int(raw) if raw.isdigit() else 0
+    return min(days, 45) or None
 
 
 async def client(session: AsyncSession) -> MercadoLivre:
@@ -262,6 +275,7 @@ async def publish(
                 pictures=await _pictures(session, product.id),
                 attributes=[{"id": k, "value_name": v} for k, v in attrs.items() if v],
                 user_products=await ml.is_user_products_seller(token),
+                manufacturing_days=await manufacturing_days(session),
             ),
         )
         listing.external_id = str(created["id"])
