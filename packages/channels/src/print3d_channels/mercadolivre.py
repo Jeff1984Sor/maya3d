@@ -151,6 +151,10 @@ class MercadoLivre:
         data: dict[str, Any] = await self._request("GET", "/users/me", token=token)
         return data
 
+    async def is_user_products_seller(self, token: str) -> bool:
+        """Conta migrada para User Products publica com ``family_name`` (sem ``title``)."""
+        return "user_product_seller" in ((await self.me(token)).get("tags") or [])
+
     # --- Catálogo e tarifa -------------------------------------------------------------------
     async def predict_category(self, token: str, title: str) -> Category | None:
         data = await self._request(
@@ -240,11 +244,17 @@ def item_payload(
     listing_type: str,
     pictures: list[str],
     attributes: list[dict[str, Any]],
+    user_products: bool = False,
 ) -> dict[str, Any]:
-    """Corpo de POST /items. Fotos precisam ser URLs públicas (HTTPS, com domínio)."""
+    """Corpo de POST /items. Fotos precisam ser URLs públicas (HTTPS, com domínio).
+
+    Conta no modelo User Products (tag ``user_product_seller``): manda ``family_name`` e não
+    manda ``title`` — o ML gera o título a partir dele e dos atributos.
+    """
+    name = {"family_name": title[:60]} if user_products else {"title": title[:60]}
     return {
         "site_id": SITE,
-        "title": title[:60],
+        **name,
         "category_id": category_id,
         "price": float(price),
         "currency_id": "BRL",

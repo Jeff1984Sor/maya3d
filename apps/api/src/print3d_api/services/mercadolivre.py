@@ -261,6 +261,7 @@ async def publish(
                 listing_type=listing_type,
                 pictures=await _pictures(session, product.id),
                 attributes=[{"id": k, "value_name": v} for k, v in attrs.items() if v],
+                user_products=await ml.is_user_products_seller(token),
             ),
         )
         listing.external_id = str(created["id"])

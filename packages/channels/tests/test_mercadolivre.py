@@ -119,6 +119,22 @@ def test_corpo_do_anuncio() -> None:
         attributes=[{"id": "BRAND", "value_name": "Genérica"}],
     )
     assert len(body["title"]) == 60
+    assert "family_name" not in body
     assert body["currency_id"] == "BRL"
     assert body["pictures"] == [{"source": "https://loja.com/m/a.webp"}]
     assert json.dumps(body)  # serializável
+
+
+def test_item_payload_user_products_usa_family_name_sem_title() -> None:
+    body = item_payload(
+        title="Crucifixo de parede em impressão 3D",
+        category_id="MLB1",
+        price=Decimal("19.90"),
+        quantity=50,
+        listing_type="gold_special",
+        pictures=["https://loja.com/m/a.webp"],
+        attributes=[],
+        user_products=True,
+    )
+    assert body["family_name"] == "Crucifixo de parede em impressão 3D"
+    assert "title" not in body

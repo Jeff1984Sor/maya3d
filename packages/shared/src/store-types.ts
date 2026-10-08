@@ -59,6 +59,8 @@ export type ShippingQuote = {
   cep: string;
   city: string;
   uf: string;
+  street?: string;
+  district?: string;
   local: boolean;
   options: ShippingOption[];
   free_shipping_min: string | null;

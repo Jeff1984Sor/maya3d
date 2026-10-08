@@ -56,6 +56,9 @@ class FakeML:
     async def me(self, token: str) -> dict[str, Any]:
         return {"id": 777, "nickname": "LOJA3D"}
 
+    async def is_user_products_seller(self, token: str) -> bool:
+        return False
+
     async def predict_category(self, token: str, title: str) -> Category:
         return Category("MLB1", "Chaveiros", None)
 

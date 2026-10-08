@@ -588,6 +588,8 @@ async def quote_shipping(
         cep=address.cep,
         city=address.city,
         uf=address.uf,
+        street=address.street,
+        district=address.district,
         local=local,
         options=options,
         free_shipping_min=free_min if local else None,

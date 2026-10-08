@@ -105,6 +105,8 @@ class ShippingQuote(BaseModel):
     cep: str
     city: str
     uf: str
+    street: str = ""  # do ViaCEP: a loja preenche rua e bairro sozinha
+    district: str = ""
     local: bool
     options: list[ShippingOption]
     free_shipping_min: Decimal | None = None

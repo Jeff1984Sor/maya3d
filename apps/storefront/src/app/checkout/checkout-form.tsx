@@ -50,12 +50,12 @@ export function CheckoutForm() {
         {shipping.quote && (
           <>
             <div className="grid gap-3 sm:grid-cols-[1fr_7rem]">
-              <input name="street" required defaultValue="" placeholder={`Rua (${shipping.quote.city}/${shipping.quote.uf})`} className={input} />
+              <input key={`r${shipping.quote.cep}`} name="street" required defaultValue={shipping.quote.street ?? ""} placeholder={`Rua (${shipping.quote.city}/${shipping.quote.uf})`} className={input} />
               <input name="number" required placeholder="Número" className={input} />
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <input name="complement" placeholder="Complemento" className={input} />
-              <input name="district" placeholder="Bairro" className={input} />
+              <input key={`b${shipping.quote.cep}`} name="district" defaultValue={shipping.quote.district ?? ""} placeholder="Bairro" className={input} />
             </div>
             <div className="space-y-2">
               {shipping.quote.options.map((o) => (
