@@ -17,6 +17,7 @@ import pathlib
 import sys
 import time
 from decimal import Decimal
+from typing import Any
 
 import httpx
 
@@ -25,13 +26,39 @@ def ends_90(value: Decimal) -> Decimal:
     return Decimal(math.ceil(value + Decimal("0.10"))) - Decimal("0.10")
 
 
+def attempt(
+    c: httpx.Client, variant_id: int, site: Decimal, category_id: str | None, auto: dict[str, str]
+) -> tuple[Decimal, dict[str, Any], str | None, list[str]] | None:
+    """Preço (site + tarifa real) e o que falta na categoria; None se o ML recusar."""
+    price = site
+    prev: dict[str, Any] = {}
+    for _ in range(3):  # a tarifa depende do preço: converge em 2-3 voltas
+        body: dict[str, Any] = {"variant_id": variant_id, "price": str(price)}
+        if category_id:
+            body["category_id"] = category_id
+        pv = c.post("/mercadolivre/preview", json=body)
+        if pv.status_code == 422:
+            return None
+        pv.raise_for_status()
+        prev = pv.json()
+        price = ends_90(site + Decimal(prev["fee"]))
+    missing = [
+        a["name"] for a in prev["required_attributes"] if a["id"] not in ("BRAND", "MODEL", *auto)
+    ]
+    return price, prev, category_id, missing
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("categoria")
     ap.add_argument("--api", required=True, help="endereço HTTPS da API (Integrações)")
+    ap.add_argument(
+        "--categoria-reserva",
+        help="categoria do ML (ex.: MLB1234) quando a sugerida pede dados que não temos",
+    )
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
-    sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
+    sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
 
     token = (pathlib.Path.home() / "Downloads" / "robo-token.txt").read_text().strip()
     c = httpx.Client(
@@ -54,25 +81,26 @@ def main() -> int:
                 print(f"= {p['title']}: já anunciado")
                 continue
             variants = c.get(f"/products/{p['id']}").json()["variants"]
+            if not variants:
+                print(f"! {p['title']}: sem variante (tamanho) cadastrada — pulei")
+                continue
             variant = next(
                 (v for v in variants if str(v.get("size_label") or "").startswith("M")), variants[0]
             )
             quote = c.get(f"/products/{p['id']}/variants/{variant['id']}/quote").json()
             site = next(Decimal(q["price"]) for q in quote["quotes"] if q["channel"] == "site_pix")
-            price = site
-            for _ in range(3):  # a tarifa depende do preço: converge em 2-3 voltas
-                pv = c.post(
-                    "/mercadolivre/preview", json={"variant_id": variant["id"], "price": str(price)}
-                )
-                pv.raise_for_status()
-                prev = pv.json()
-                price = ends_90(site + Decimal(prev["fee"]))
-            missing = [
-                a for a in prev["required_attributes"] if a["id"] not in ("BRAND", "MODEL", *auto)
-            ]
-            if missing:
-                print(f"! {p['title']}: o ML pede {[a['name'] for a in missing]} — pulei")
+            # 1º a categoria sugerida pelo ML; se ela pedir o que não sabemos (ex.: ISBN de
+            # livro), a categoria reserva (--categoria-reserva)
+            found = None
+            for category_id in (None, args.categoria_reserva):
+                found = attempt(c, variant["id"], site, category_id, auto)
+                if found and not found[3]:
+                    break
+            if found is None or found[3]:
+                why = found[3] if found else "o ML não sugeriu categoria"
+                print(f"! {p['title']}: o ML pede {why} — pulei")
                 continue
+            price, prev, category_id, _ = found
             extra = {a["id"]: auto[a["id"]] for a in prev["required_attributes"] if a["id"] in auto}
             line = (
                 f"{p['title']} | {variant.get('size_label')} | site R$ {site} → ML R$ {price}"
@@ -82,6 +110,8 @@ def main() -> int:
                 print(f"~ {line}")
                 continue
             body = {"variant_id": variant["id"], "price": str(price), "attributes": extra}
+            if category_id:
+                body["category_id"] = category_id
             r = c.post("/mercadolivre/listings", json=body)
             r.raise_for_status()
             listing = r.json()

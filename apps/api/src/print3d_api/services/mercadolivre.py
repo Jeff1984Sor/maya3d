@@ -30,6 +30,7 @@ from print3d_api.models.brand import SINGLETON_ID
 from print3d_api.schemas.orders import OrderCreate, OrderItemIn
 from print3d_api.services import audit, content, integrations, media, notifications, orders
 from print3d_channels.mercadolivre import (
+    Category,
     MercadoLivre,
     MercadoLivreError,
     Tokens,
@@ -208,17 +209,29 @@ async def _variant(session: AsyncSession, variant_id: int) -> tuple[Variant, Pro
     return variant, product
 
 
+async def _category(ml: MercadoLivre, token: str, title: str, category_id: str | None) -> Category:
+    """Categoria escolhida pelo dono (quando o preditor do ML erra) ou a sugerida pelo ML."""
+    if category_id:
+        return Category(category_id, category_id, None)
+    category = await ml.predict_category(token, title)
+    if category is None:
+        raise MLError("o Mercado Livre não sugeriu categoria para este título")
+    return category
+
+
 async def preview(
-    session: AsyncSession, variant_id: int, price: Decimal, listing_type: str
+    session: AsyncSession,
+    variant_id: int,
+    price: Decimal,
+    listing_type: str,
+    category_id: str | None = None,
 ) -> dict[str, Any]:
     """Antes de publicar: categoria sugerida, atributos obrigatórios e tarifa REAL do ML."""
     _, product = await _variant(session, variant_id)
     token = await access_token(session)
     ml = await client(session)
     title, _ = await _copy(session, product)
-    category = await ml.predict_category(token, title)
-    if category is None:
-        raise MLError("o Mercado Livre não sugeriu categoria para este título")
+    category = await _category(ml, token, title, category_id)
     fee = await ml.listing_fee(
         token, price=price, category_id=category.id, listing_type=listing_type
     )
@@ -239,14 +252,13 @@ async def publish(
     price: Decimal,
     listing_type: str,
     attributes: dict[str, str],
+    category_id: str | None = None,
 ) -> ChannelListing:
     variant, product = await _variant(session, variant_id)
     token = await access_token(session)
     ml = await client(session)
     title, description = await _copy(session, product)
-    category = await ml.predict_category(token, title)
-    if category is None:
-        raise MLError("o Mercado Livre não sugeriu categoria para este título")
+    category = await _category(ml, token, title, category_id)
     brand = await session.get(BrandSettings, SINGLETON_ID)
     attrs = {
         "BRAND": brand.name if brand else "Genérica",

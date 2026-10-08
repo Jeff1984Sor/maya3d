@@ -27,6 +27,7 @@ class PreviewIn(BaseModel):
     variant_id: int
     price: Decimal = Field(gt=0, le=100_000)
     listing_type: ListingType = "gold_special"
+    category_id: Annotated[str | None, Field(pattern=r"^MLB\d{1,12}$")] = None
 
 
 class PublishIn(PreviewIn):
@@ -43,6 +44,7 @@ class ListingOut(BaseModel):
     product_id: int
     variant_id: int
     external_id: str | None
+    category_id: str | None = None
     listing_type: str | None
     price: Decimal
     status: str
@@ -96,7 +98,9 @@ async def disconnect(session: Session) -> None:
 @router.post("/preview")
 async def preview(payload: PreviewIn, session: Session) -> dict[str, Any]:
     try:
-        return await ml.preview(session, payload.variant_id, payload.price, payload.listing_type)
+        return await ml.preview(
+            session, payload.variant_id, payload.price, payload.listing_type, payload.category_id
+        )
     except ERRORS as exc:
         raise _http(exc) from exc
 
@@ -105,7 +109,12 @@ async def preview(payload: PreviewIn, session: Session) -> dict[str, Any]:
 async def publish(payload: PublishIn, session: Session) -> ChannelListing:
     try:
         return await ml.publish(
-            session, payload.variant_id, payload.price, payload.listing_type, payload.attributes
+            session,
+            payload.variant_id,
+            payload.price,
+            payload.listing_type,
+            payload.attributes,
+            payload.category_id,
         )
     except ERRORS as exc:
         raise _http(exc) from exc
