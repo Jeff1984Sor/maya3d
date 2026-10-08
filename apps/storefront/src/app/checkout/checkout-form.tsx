@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { startTransition, useActionState, useRef, useState } from "react";
 import { quoteShipping, type ShippingState } from "@/actions/cart";
 import { placeOrder, type CheckoutState } from "@/actions/checkout";
 import { money } from "@/lib/format";
@@ -11,6 +11,17 @@ export function CheckoutForm() {
   const [state, action, pending] = useActionState<CheckoutState, FormData>(placeOrder, {});
   const [shipping, quote, quoting] = useActionState<ShippingState, FormData>(quoteShipping, {});
   const [option, setOption] = useState<string>("");
+  const lastCep = useRef("");
+
+  // CEP completo: calcula o frete sozinho (o botão "Ver opções" continua para recalcular).
+  function autoQuote(value: string) {
+    const digits = value.replace(/\D/g, "");
+    if (digits.length !== 8 || digits === lastCep.current) return;
+    lastCep.current = digits;
+    const data = new FormData();
+    data.set("cep", digits);
+    startTransition(() => quote(data));
+  }
 
   return (
     <form action={action} className="space-y-8">
@@ -30,7 +41,7 @@ export function CheckoutForm() {
       <section className="space-y-3">
         <h2 className="font-heading text-lg font-semibold">Entrega</h2>
         <div className="flex gap-2">
-          <input name="cep" required placeholder="CEP" inputMode="numeric" maxLength={9} className={input} />
+          <input name="cep" required placeholder="CEP" inputMode="numeric" maxLength={9} onChange={(e) => autoQuote(e.target.value)} className={input} />
           <button formAction={quote} formNoValidate disabled={quoting} className="rounded-xl border border-border px-4">
             {quoting ? "…" : "Ver opções"}
           </button>
@@ -87,6 +98,9 @@ export function CheckoutForm() {
       <button disabled={pending || !shipping.quote} className="w-full rounded-xl bg-primary px-6 py-4 text-lg font-semibold text-white disabled:opacity-50">
         {pending ? "Enviando pedido…" : "Fazer pedido e pagar com Pix"}
       </button>
+      {!shipping.quote && (
+        <p className="text-center text-sm text-muted">Informe o CEP em Entrega para calcular o frete e liberar o pagamento.</p>
+      )}
     </form>
   );
 }
