@@ -1,3 +1,4 @@
+import asyncio
 from decimal import Decimal
 from typing import Annotated, Any, Literal
 
@@ -6,14 +7,17 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from print3d_ai import AINotConfiguredError, AIOutputError, AIRefusedError
+from print3d_ai import AINotConfiguredError, AIOutputError, AIRefusedError, AITask, ImageInput
 from print3d_ai.prompts import channel_copy
+from print3d_ai.prompts import product_from_photo as product_from_photo_prompt
 from print3d_api.db.session import get_session
-from print3d_api.deps import get_ai_factory, get_embedder_factory
-from print3d_api.models import AIConfig, Product
+from print3d_api.deps import get_ai_factory, get_embedder_factory, get_storage
+from print3d_api.models import AIConfig, BrandSettings, Product
 from print3d_api.models.ai import AI_CONFIG_ID
-from print3d_api.services import ai, audit, copywriter, search
+from print3d_api.models.brand import SINGLETON_ID
+from print3d_api.services import ai, audit, content, copywriter, search
 from print3d_api.services.guardian import UnknownNicheError
+from print3d_core.storage import LocalStorage
 
 router = APIRouter(prefix="/ai", tags=["admin: IA"])
 Session = Annotated[AsyncSession, Depends(get_session)]
@@ -239,4 +243,48 @@ async def search_test(
             }
             for pid, d in hits
         ],
+    }
+
+
+# --- 📷 Produto pela foto (visão) -------------------------------------------------------------
+@router.post("/products/{product_id}/from-photo")
+async def product_from_photo(
+    product_id: int,
+    session: Session,
+    factory: Factory,
+    storage: Annotated[LocalStorage, Depends(get_storage)],
+) -> dict[str, Any]:
+    """A IA olha a capa e diz o tipo da peça + título/descrição. Não grava nada: devolve a
+    sugestão e os tamanhos P/M/G da tabela do tipo (medidas nunca vêm da IA)."""
+    product = await session.get(Product, product_id)
+    if product is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "produto não existe")
+    images = await content.images_of(session, product_id)
+    if not images:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "produto sem foto")
+    settings = await ai.effective_settings(session)
+    try:
+        model = settings.model_for(AITask.GUARDIAN)  # modelo com visão (Guardião visual)
+        brand = await session.get(BrandSettings, SINGLETON_ID)
+        system, prompt = product_from_photo_prompt.build(
+            loja=brand.name if brand else "a loja",
+            titulo=product.title,
+            colecao=product.category,
+        )
+        data = await asyncio.to_thread(storage.local_path(images[0].key).read_bytes)
+        result = await factory(settings).complete_json(
+            system=system,
+            prompt=prompt,
+            schema=product_from_photo_prompt.PhotoProduct,
+            model=model,
+            max_tokens=1500,
+            images=[ImageInput(data, "image/webp")],
+        )
+    except AI_ERRORS as exc:
+        raise _ai_http(exc) from exc
+    return {
+        **result.model_dump(),
+        "sizes_mm": product_from_photo_prompt.SIZES[result.kind],
+        "model": model,
+        "prompt_version": product_from_photo_prompt.VERSION,
     }
