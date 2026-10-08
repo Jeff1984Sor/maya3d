@@ -52,7 +52,7 @@ Especificação completa: [docs/especificacao/prompt-impressao3d.md](docs/especi
 - Chaves de integrações (IA, WhatsApp): o dono cola no painel **Integrações** (tabela `integration_settings`, segredos cifrados com Fernet; painel > `.env`). O dono não quer editar `.env`. Modelos de IA escolhidos na tela IA (tabela `ai_config`), nunca no código. O dono usa OpenAI.
 - CI: falhas de teste viram anotações (legíveis pela API pública); limite de 60 consultas/h — para acompanhar deploy, prefira olhar `/health/live` (release) do servidor.
 - Checagem local permitida: `npx pnpm@9.15.0 -r typecheck|lint|test` (o `next build` local falha só por symlink do Windows no standalone; no CI passa).
-- Produção no ar: v0.1.0 (loja :39001, admin :39002, API :39000). Domínio + HTTPS antes da Fase 3.
+- Produção com domínio e HTTPS (2026-10-08): loja, painel e API em subdomínios do domínio do dono (nginx do servidor + certbot; ops/nginx-render.sh com os 3 hosts). Endereços públicos ficam em Integrações (PUBLIC_API_URL / PUBLIC_STORE_URL); nunca no código. Portas 39000–39002 seguem abertas por IP até decidirmos fechar.
 - O dono não usa a interface do GitHub. Produção **sem aprovação manual** (autorizado em 2026-10-07): para publicar, criar e enviar uma tag `vX.Y.Z` daqui; o CD passa por CI → staging + smoke → prod. Acompanhar via API pública do GitHub (limite de 60 consultas/h) ou testando as portas.
 - Lint/testes locais são permitidos só como análise estática (`uv run python -m pytest`, ruff, mypy, shellcheck); nada de servidor/app no Windows.
 - Dúvidas bloqueantes para o dono: [docs/duvidas-bloqueantes.md](docs/duvidas-bloqueantes.md).
