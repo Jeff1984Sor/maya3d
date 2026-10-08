@@ -2,7 +2,7 @@
 # Uso: ops/nginx-render.sh <staging|prod> [<host-loja> <host-painel> <host-api>] [--force]
 # Gera /etc/nginx/sites-available/print3d-<stack>.conf a partir de infra/nginx.
 # Sem hosts: loja./admin./api. + BASE_DOMAIN. Com hosts: usa os informados
-# (ex.: maya3d.mayacorp.com.br painel.maya3d.mayacorp.com.br api.maya3d.mayacorp.com.br).
+# (ex.: loja.exemplo.com.br painel.loja.exemplo.com.br api.loja.exemplo.com.br).
 # Só ACRESCENTA um arquivo no nginx: não mexe nos outros sites do servidor.
 # Não sobrescreve conf existente (o certbot já editou o bloco HTTPS) sem --force.
 set -euo pipefail
