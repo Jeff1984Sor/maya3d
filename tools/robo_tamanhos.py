@@ -147,34 +147,39 @@ def main() -> None:
             if args.dry_run:
                 done += 1
                 continue
-            call(
-                "PATCH",
-                f"/products/{pid}",
-                json={
-                    "title": title,
-                    "description": photo["description"],
-                    "tags": photo["tags"][:10],
-                },
-            )
-            white = next(iter(variants[0]["grams_by_material"] or {}), None)
-            for i, (label, size, dims, grams, seconds) in enumerate(plan):
-                body = {
-                    "size_label": f"{label} · {size // 10} cm",
-                    "dims_mm": dims,
-                    "grams_by_material": {white: grams},
-                    "print_seconds": seconds,
-                    "post_minutes": 5,
-                    "params": {
-                        "estimativa": True,
-                        "tamanhos": True,
-                        "tipo": photo["kind"],
-                        "altura_mm": size,
+            try:
+                call(
+                    "PATCH",
+                    f"/products/{pid}",
+                    json={
+                        "title": title,
+                        "description": photo["description"],
+                        "tags": photo["tags"][:10],
                     },
-                }
-                if i == 0:
-                    call("PATCH", f"/products/{pid}/variants/{variants[0]['id']}", json=body)
-                else:
-                    call("POST", f"/products/{pid}/variants", json=body)
+                )
+                white = next(iter(variants[0]["grams_by_material"] or {}), None)
+                for i, (label, size, dims, grams, seconds) in enumerate(plan):
+                    body = {
+                        "size_label": f"{label} · {size // 10} cm",
+                        "dims_mm": dims,
+                        "grams_by_material": {white: grams},
+                        "print_seconds": seconds,
+                        "post_minutes": 5,
+                        "params": {
+                            "estimativa": True,
+                            "tamanhos": True,
+                            "tipo": photo["kind"],
+                            "altura_mm": size,
+                        },
+                    }
+                    if i == 0:
+                        call("PATCH", f"/products/{pid}/variants/{variants[0]['id']}", json=body)
+                    else:
+                        call("POST", f"/products/{pid}/variants", json=body)
+            except RuntimeError as exc:  # um produto com erro não para o robô
+                failed += 1
+                log(f"  erro em {product['title']}: {str(exc)[:160]}")
+                continue
             done += 1
     log(f"Fim: {done} produtos com P/M/G e título revisado; {failed} com problema.")
 

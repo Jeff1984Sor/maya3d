@@ -147,7 +147,7 @@ class FeeBandOut(_Out, FeeBandIn):
 
 # --- Configuração de custos ------------------------------------------------------------------
 class CostConfigIn(BaseModel):
-    energy_price_kwh: Annotated[Decimal, Field(gt=0, max_digits=8, decimal_places=4)]
+    energy_price_kwh: Annotated[Decimal, Field(ge=0, max_digits=8, decimal_places=4)]
     labor_per_hour: Money
     failure_rate: Rate
     min_profit: Money
