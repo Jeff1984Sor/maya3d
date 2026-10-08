@@ -23,9 +23,13 @@ server {
     server_name ${ADMIN_HOST};
     include /etc/nginx/snippets/print3d-security.conf;
     add_header X-Robots-Tag "noindex, nofollow" always;
+    client_max_body_size 2100m;  # Biblioteca: ZIP de acervo (até 2 GB) e fotos
     location / {
         proxy_pass http://print3d_${STACK}_admin;
         include /etc/nginx/snippets/print3d-proxy.conf;
+        proxy_request_buffering off;  # envia em fluxo, sem lotar o disco do nginx
+        proxy_read_timeout 900s;
+        proxy_send_timeout 900s;
     }
 }
 
@@ -33,10 +37,13 @@ server {
     listen 80;
     server_name ${API_HOST};
     include /etc/nginx/snippets/print3d-security.conf;
-    client_max_body_size 50m;   # uploads de STL/fotos (ajustável por fase)
+    client_max_body_size 2100m;  # robô do acervo e envios grandes
     location / {
         limit_req zone=print3d_${STACK}_api burst=40 nodelay;
         proxy_pass http://print3d_${STACK}_api;
         include /etc/nginx/snippets/print3d-proxy.conf;
+        proxy_request_buffering off;
+        proxy_read_timeout 900s;
+        proxy_send_timeout 900s;
     }
 }

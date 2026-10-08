@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
-# Uso: ops/nginx-render.sh <staging|prod> [--force]
+# Uso: ops/nginx-render.sh <staging|prod> [<host-loja> <host-painel> <host-api>] [--force]
 # Gera /etc/nginx/sites-available/print3d-<stack>.conf a partir de infra/nginx.
+# Sem hosts: loja./admin./api. + BASE_DOMAIN. Com hosts: usa os informados
+# (ex.: maya3d.mayacorp.com.br painel.maya3d.mayacorp.com.br api.maya3d.mayacorp.com.br).
+# Só ACRESCENTA um arquivo no nginx: não mexe nos outros sites do servidor.
 # Não sobrescreve conf existente (o certbot já editou o bloco HTTPS) sem --force.
 set -euo pipefail
 export SCRIPT_NAME=nginx-render
@@ -10,12 +13,24 @@ source "$(dirname "$0")/lib/common.sh"
 require_stack "${1:-}"
 load_stack_env
 
+FORCE=""
+HOSTS=()
+for arg in "${@:2}"; do
+  if [[ "$arg" == "--force" ]]; then FORCE=1; else HOSTS+=("$arg"); fi
+done
+
 TARGET="/etc/nginx/sites-available/print3d-${STACK}.conf"
-if [[ -f "$TARGET" && "${2:-}" != "--force" ]]; then
+if [[ -f "$TARGET" && -z "$FORCE" ]]; then
   log "${TARGET} já existe; use --force para recriar (perde ajustes do certbot)"; exit 0
 fi
 
-STOREFRONT_HOST="$(stack_host loja)"; ADMIN_HOST="$(stack_host admin)"; API_HOST="$(stack_host api)"
+if [[ ${#HOSTS[@]} -eq 3 ]]; then
+  STOREFRONT_HOST="${HOSTS[0]}"; ADMIN_HOST="${HOSTS[1]}"; API_HOST="${HOSTS[2]}"
+elif [[ ${#HOSTS[@]} -eq 0 ]]; then
+  STOREFRONT_HOST="$(stack_host loja)"; ADMIN_HOST="$(stack_host admin)"; API_HOST="$(stack_host api)"
+else
+  die "informe os 3 hosts (loja, painel, api) ou nenhum"
+fi
 export STOREFRONT_HOST ADMIN_HOST API_HOST
 
 sudo install -d /etc/nginx/snippets
