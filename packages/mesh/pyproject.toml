@@ -15,6 +15,7 @@ dependencies = [
     "rtree>=1.3",  # seções com furos internos (peças ocas)
     "pillow>=11.0",  # foto vira peça
     "lxml>=5.3",  # leitura de 3MF (Biblioteca de modelos)
+    "fast-simplification>=0.1",  # malha leve para a prévia 3D da loja
 ]
 # Próximas partes: manifold3d (reparo/booleanas), build123d (paramétricos). Blender e fatiador
 # rodam em containers próprios.

@@ -1,5 +1,6 @@
 """API pública da loja (sem token de admin). Só expõe o que o cliente pode ver."""
 
+import asyncio
 import logging
 from datetime import date
 from decimal import Decimal
@@ -10,13 +11,14 @@ from arq.jobs import Job, JobStatus
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, ValidationError
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from print3d_ai import AINotConfiguredError, AIOutputError, AIRefusedError
 from print3d_ai.prompts import shop_assistant
 from print3d_api.db.session import get_session
 from print3d_api.deps import get_ai_factory, get_embedder_factory, get_queue, get_storage
-from print3d_api.models import OpsConfig, StorePage
+from print3d_api.models import Design, OpsConfig, Product, StorePage, Variant
 from print3d_api.models.orders import OPS_CONFIG_ID
 from print3d_api.schemas.governance import GuardianCheckIn
 from print3d_api.schemas.store import (
@@ -45,6 +47,7 @@ from print3d_api.services.cep import CepError, CepProvider, ViaCepProvider
 from print3d_channels.shipping import ShippingQuoter
 from print3d_core.storage import LocalStorage, StorageError
 from print3d_mesh.parametric import MODELS
+from print3d_mesh.preview import make_preview
 
 router = APIRouter(prefix="/v1/store", tags=["loja"])
 Session = Annotated[AsyncSession, Depends(get_session)]
@@ -404,4 +407,46 @@ async def media_file(
         path,
         media_type="image/webp",
         headers={"cache-control": "public, max-age=31536000, immutable"},  # nome é único
+    )
+
+
+# --- Prévia 3D (girar e trocar de cor na página do produto) ---------------------------------
+_preview_locks: dict[int, asyncio.Lock] = {}
+
+
+@router.get("/products/{slug}/preview.stl")
+async def product_preview(
+    slug: str, session: Session, storage: Annotated[LocalStorage, Depends(get_storage)]
+) -> FileResponse:
+    """Malha leve (só para ver), gerada uma vez por produto e guardada."""
+    try:
+        detail = await store.product_detail(session, slug)
+    except store.StoreError as exc:
+        raise _http(exc) from exc
+    product = await session.scalar(select(Product).where(Product.slug == slug))
+    design = await session.get(Design, product.design_id) if product else None
+    source = (design.source_file_url if design else None) or ""
+    if not product or not detail.model3d or not source.startswith("library/"):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "produto sem prévia 3D")
+    out = storage.local_path(f"previews/{product.id}.stl")
+    if not out.is_file():
+        variant = await session.scalar(
+            select(Variant).where(Variant.product_id == product.id).order_by(Variant.id)
+        )
+        height = (variant.params or {}).get("altura_mm") if variant else None
+        if not height and variant and variant.dims_mm:
+            height = max(variant.dims_mm)
+        lock = _preview_locks.setdefault(product.id, asyncio.Lock())
+        async with lock:
+            if not out.is_file():
+                try:
+                    await asyncio.to_thread(
+                        make_preview, storage.local_path(source), out, height_mm=height
+                    )
+                except (OSError, ValueError, StorageError) as exc:
+                    raise HTTPException(
+                        status.HTTP_404_NOT_FOUND, "prévia 3D indisponível"
+                    ) from exc
+    return FileResponse(
+        out, media_type="model/stl", headers={"cache-control": "public, max-age=86400"}
     )

@@ -6,12 +6,25 @@ import { money } from "@/lib/format";
 import type { Product } from "@/lib/store";
 
 /** Escolha de variante, cor, quantidade e texto; preço muda ao vivo. */
-export function BuyBox({ product, personalization = {} }: { product: Product; personalization?: Record<string, string> }) {
+export function BuyBox({
+  product,
+  personalization = {},
+  colorId: controlledColor,
+  onColorChange,
+}: {
+  product: Product;
+  personalization?: Record<string, string>;
+  /** controlado pela página (a peça 3D usa a mesma cor) */
+  colorId?: number;
+  onColorChange?: (id: number | undefined) => void;
+}) {
   const [state, action, pending] = useActionState<AddState, FormData>(addToCart, {});
   const sellable = product.variants.filter((v) => v.price_pix);
   const [variantId, setVariantId] = useState(sellable[0]?.id ?? product.variants[0]?.id);
   const variant = product.variants.find((v) => v.id === variantId) ?? product.variants[0];
-  const [colorId, setColorId] = useState<number | undefined>(variant?.colors[0]?.material_id);
+  const [ownColor, setOwnColor] = useState<number | undefined>(variant?.colors[0]?.material_id);
+  const colorId = onColorChange ? controlledColor : ownColor;
+  const setColorId = (id: number | undefined) => (onColorChange ? onColorChange(id) : setOwnColor(id));
   const [qty, setQty] = useState(1);
 
   if (!variant || !variant.price_pix) {

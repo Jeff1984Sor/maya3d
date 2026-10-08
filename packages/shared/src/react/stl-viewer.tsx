@@ -6,8 +6,10 @@ import { useEffect, useRef, useState } from "react";
  * Visualizador 3D de STL (three.js), com girar/zoom. Carrega o three sob demanda para não
  * pesar nas outras telas do painel.
  */
-export function StlViewer({ url, color = "#14B8A6" }: { url: string; color?: string }) {
+export function StlViewer({ url, color = "#14B8A6", className }: { url: string; color?: string; className?: string }) {
   const mountRef = useRef<HTMLDivElement>(null);
+  // material guardado: trocar a cor não recarrega o modelo
+  const materialRef = useRef<{ color: { set: (c: string) => void } } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -46,10 +48,9 @@ export function StlViewer({ url, color = "#14B8A6" }: { url: string; color?: str
       geometry.center();
       geometry.rotateX(-Math.PI / 2); // Z do fatiador para cima na tela
 
-      const mesh = new THREE.Mesh(
-        geometry,
-        new THREE.MeshStandardMaterial({ color, roughness: 0.55, metalness: 0.05 }),
-      );
+      const material = new THREE.MeshStandardMaterial({ color, roughness: 0.55, metalness: 0.05 });
+      materialRef.current = material;
+      const mesh = new THREE.Mesh(geometry, material);
       scene.add(mesh);
 
       geometry.computeBoundingSphere();
@@ -79,12 +80,19 @@ export function StlViewer({ url, color = "#14B8A6" }: { url: string; color?: str
 
     return () => {
       disposed = true;
+      materialRef.current = null;
       cleanup();
     };
-  }, [url, color]);
+    // a cor inicial entra na criação; mudanças de cor vão pelo efeito abaixo
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [url]);
+
+  useEffect(() => {
+    materialRef.current?.color.set(color);
+  }, [color]);
 
   return (
-    <div ref={mountRef} className="relative h-80 w-full overflow-hidden rounded-xl border border-border bg-bg">
+    <div ref={mountRef} className={className ?? "relative h-80 w-full overflow-hidden rounded-xl border border-border bg-bg"}>
       {error && <p className="absolute inset-0 flex items-center justify-center text-sm text-muted">{error}</p>}
     </div>
   );

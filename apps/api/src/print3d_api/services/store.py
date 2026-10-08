@@ -364,6 +364,7 @@ async def product_detail(session: AsyncSession, slug: str) -> StoreProduct:
             for v in variants
         ],
         parametric_model=str(model) if model else None,
+        model3d=bool(design and (design.source_file_url or "").startswith("library/")),
         images=[
             StoreImage(
                 url=media.public_url(i.key) or "",

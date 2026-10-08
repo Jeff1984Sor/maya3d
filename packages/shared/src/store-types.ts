@@ -39,6 +39,7 @@ export type Product = ProductCard & {
   age_rating: string | null;
   variants: Variant[];
   parametric_model: string | null;
+  model3d?: boolean;
   images?: StoreImage[];
 };
 export type CartLine = {
