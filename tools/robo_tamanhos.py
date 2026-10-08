@@ -32,7 +32,8 @@ def log(msg: str) -> None:
 
 def estimate(volume_cm3: float) -> tuple[float, int]:
     side = volume_cm3 ** (1 / 3) if volume_cm3 > 0 else 1
-    fill = min(1.0, max(0.25, 0.2 + 2.0 / side))
+    # paredes + 15% de preenchimento: peça pequena ~maciça, grande ~30%
+    fill = min(1.0, max(0.15, 0.12 + 1.2 / side))
     grams = max(2.0, round(volume_cm3 * PLA_DENSITY * fill, 1))
     return grams, max(900, int(grams / FLOW_G_PER_H * 3600) + SETUP_S)
 
