@@ -49,7 +49,8 @@ def main() -> int:
     ok = 0
     for p in products:
         try:
-            if c.get("/mercadolivre/listings", params={"product_id": p["id"]}).json():
+            listings = c.get("/mercadolivre/listings", params={"product_id": p["id"]}).json()
+            if any(x["status"] == "publicado" for x in listings):  # tentativa com erro: refaz
                 print(f"= {p['title']}: já anunciado")
                 continue
             variants = c.get(f"/products/{p['id']}").json()["variants"]
