@@ -1,6 +1,6 @@
 # Imagem única para API e worker (comandos diferentes no compose).
 # Contexto de build: raiz do repositório.
-FROM python:3.12-slim AS build
+FROM python:3.15-slim AS build
 COPY --from=ghcr.io/astral-sh/uv:0.5 /uv /usr/local/bin/uv
 ENV UV_LINK_MODE=copy UV_COMPILE_BYTECODE=1 UV_PROJECT_ENVIRONMENT=/opt/venv
 WORKDIR /src
@@ -10,7 +10,7 @@ COPY apps/worker apps/worker
 COPY packages packages
 RUN uv sync --locked --no-dev --no-editable --all-packages
 
-FROM python:3.12-slim
+FROM python:3.15-slim
 ARG RELEASE=dev
 ENV PATH="/opt/venv/bin:$PATH" PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 RELEASE=${RELEASE}
 # OpenSCAD: gera os modelos paramétricos no worker (fontes OFL vêm dentro do pacote print3d_mesh).
