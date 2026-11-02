@@ -44,6 +44,7 @@ class FakeML:
         self.answers: list[tuple[int, str]] = []
         self.fail_item = False
         self.resources: dict[str, dict[str, Any]] = {}
+        self.updates: list[tuple[str, dict[str, Any]]] = []
 
     async def exchange_code(self, code: str, redirect_uri: str, verifier: str) -> Tokens:
         assert redirect_uri == "https://api.loja.test/v1/channels/mercadolivre/callback"
@@ -76,6 +77,12 @@ class FakeML:
 
     async def set_description(self, token: str, item_id: str, text: str) -> None:
         return None
+
+    async def update_item(
+        self, token: str, item_id: str, changes: dict[str, Any]
+    ) -> dict[str, Any]:
+        self.updates.append((item_id, changes))
+        return {"id": item_id}
 
     async def get(self, token: str, resource: str) -> dict[str, Any]:
         return self.resources[resource]
@@ -239,6 +246,10 @@ def test_conecta_anuncia_importa_pedido_e_responde(client: TestClient, fake: Fak
     ).json()
     assert done["status"] == "respondida"
     assert fake.answers == [(88, "Temos sim!")]
+
+    closed = client.delete(f"/v1/admin/mercadolivre/listings/{listing['id']}", headers=H).json()
+    assert closed["status"] == "encerrado"
+    assert fake.updates == [("MLB999", {"status": "closed"}), ("MLB999", {"deleted": "true"})]
 
 
 def test_sem_https_nao_conecta(client: TestClient) -> None:

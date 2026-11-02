@@ -418,3 +418,34 @@ async def answer(session: AsyncSession, question_id: int, text: str) -> Marketpl
     )
     await session.commit()
     return question
+
+
+async def close_listing(session: AsyncSession, listing_id: int) -> ChannelListing:
+    """Encerra o anúncio no ML e o apaga da lista do vendedor (não tem volta).
+
+    Usa a conta conectada agora: encerre ANTES de trocar de conta.
+    """
+    listing = await session.get(ChannelListing, listing_id)
+    if listing is None or listing.channel != CHANNEL:
+        raise MLError("anúncio não existe", status=404)
+    if listing.status == "encerrado":
+        return listing
+    if listing.external_id:
+        token = await access_token(session)
+        ml = await client(session)
+        try:
+            await ml.update_item(token, listing.external_id, {"status": "closed"})
+            await ml.update_item(token, listing.external_id, {"deleted": "true"})
+        except MercadoLivreError as exc:
+            raise MLError(f"o Mercado Livre recusou o encerramento: {exc}") from exc
+    listing.status = "encerrado"
+    await audit.record(
+        session,
+        actor="admin",
+        action="ml_anuncio_encerrado",
+        entity_type="product",
+        entity_id=listing.product_id,
+        payload={"anuncio": listing.external_id},
+    )
+    await session.commit()
+    return listing

@@ -145,3 +145,12 @@ async def answer(question_id: int, payload: AnswerIn, session: Session) -> Marke
         return await ml.answer(session, question_id, payload.text)
     except ERRORS as exc:
         raise _http(exc) from exc
+
+
+@router.delete("/listings/{listing_id}", response_model=ListingOut)
+async def close(listing_id: int, session: Session) -> ChannelListing:
+    """Encerra e apaga o anúncio no Mercado Livre (ação sem volta)."""
+    try:
+        return await ml.close_listing(session, listing_id)
+    except ERRORS as exc:
+        raise _http(exc) from exc
