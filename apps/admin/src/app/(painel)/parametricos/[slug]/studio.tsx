@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { startGeneration } from "@/actions/parametric";
 import { StlViewer } from "@print3d/shared/stl-viewer";
 import { Alert, Badge, Button, Label, inputClass } from "@/components/ui";
@@ -83,7 +83,10 @@ export function Studio({ slug, fields }: { slug: string; fields: SchemaField[] }
     };
   }, [jobId]);
 
-  async function submit(form: FormData) {
+  // onSubmit (e não action): o React não limpa o formulário, os valores digitados ficam
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
     setState({ status: "enviando" });
     setJobId(null);
     const res = await startGeneration(slug, schemaPayload(fields, form));
@@ -93,10 +96,14 @@ export function Studio({ slug, fields }: { slug: string; fields: SchemaField[] }
 
   const busy = state !== null && state.status in STATUS_LABEL;
   const result = state?.status === "concluido" ? state.result : undefined;
+  const [generated, setGenerated] = useState(false);
+  useEffect(() => {
+    if (result) setGenerated(true);
+  }, [result]);
 
   return (
     <div className="grid gap-8 xl:grid-cols-2">
-      <form action={submit} className="grid content-start gap-4 sm:grid-cols-2">
+      <form onSubmit={submit} className="grid content-start gap-4 sm:grid-cols-2">
         {fields.map((f) => (
           <Label key={f.name} label={f.label} hint={f.hint}>
             <FieldInput field={f} />
@@ -104,7 +111,7 @@ export function Studio({ slug, fields }: { slug: string; fields: SchemaField[] }
         ))}
         <div className="sm:col-span-2">
           <Button type="submit" disabled={busy}>
-            {busy ? STATUS_LABEL[state.status] : "Gerar peça"}
+            {busy ? STATUS_LABEL[state.status] : generated ? "Atualizar" : "Gerar peça"}
           </Button>
         </div>
       </form>
