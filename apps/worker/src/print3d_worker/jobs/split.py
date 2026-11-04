@@ -4,7 +4,7 @@ import asyncio
 import json
 import zipfile
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import trimesh
 
@@ -16,6 +16,25 @@ from print3d_worker.config import get_worker_settings
 
 PREFIX = "split"
 EXPLODE_GAP_MM = 15.0
+LAYOUT_GAP_MM = 10.0
+LAYOUT_ROW_MM = 600.0  # largura da fileira no .3mf (o fatiador redistribui nas mesas)
+
+
+def _project_3mf(objects: dict[str, trimesh.Trimesh], path: Path) -> None:
+    """Um objeto por pedaço, deitado no chão e lado a lado (abre direto no Bambu Studio)."""
+    scene = trimesh.Scene()
+    x = y = row = 0.0
+    for name, mesh in objects.items():
+        placed = mesh.copy()
+        lo = placed.bounds[0]
+        width, depth = float(placed.extents[0]), float(placed.extents[1])
+        if x > 0 and x + width > LAYOUT_ROW_MM:
+            x, y, row = 0.0, y + row + LAYOUT_GAP_MM, 0.0
+        placed.apply_translation([x - lo[0], y - lo[1], -lo[2]])
+        scene.add_geometry(placed, node_name=name, geom_name=name)
+        x += width + LAYOUT_GAP_MM
+        row = max(row, depth)
+    scene.export(path)  # type: ignore[no-untyped-call]
 
 
 def _export(result: SplitResult, out: Path) -> dict[str, Any]:
@@ -41,6 +60,11 @@ def _export(result: SplitResult, out: Path) -> dict[str, Any]:
         trimesh.util.concatenate(result.pins).export(out / "pinos.stl")  # type: ignore[no-untyped-call]
         files.append("pinos.stl")
     trimesh.util.concatenate(exploded).export(out / "explodido.stl")  # type: ignore[no-untyped-call]
+    objects = {p.name: p.mesh for p in result.pieces}
+    if result.pins:
+        objects["pinos"] = cast(trimesh.Trimesh, trimesh.util.concatenate(result.pins))
+    _project_3mf(objects, out / "pecas.3mf")
+    files.append("pecas.3mf")
 
     report = {
         "plan": {"counts": list(result.plan.counts), "cell_mm": list(result.plan.cell_mm)},
@@ -51,7 +75,10 @@ def _export(result: SplitResult, out: Path) -> dict[str, Any]:
         "seam_area_cm2": round(result.seam_area_mm2 / 100, 1),
         "labels": result.labels,
         "warnings": result.warnings,
+        "scale": result.scale,
+        "size_mm": list(result.size_mm),
         "exploded": "explodido.stl",
+        "project": "pecas.3mf",
         "zip": "pecas.zip",
     }
     (out / "relatorio.json").write_text(json.dumps(report, ensure_ascii=False, indent=2))

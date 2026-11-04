@@ -1,5 +1,5 @@
 import uuid
-from typing import Annotated
+from typing import Annotated, Literal
 
 from arq.connections import ArqRedis
 from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile, status
@@ -96,6 +96,9 @@ async def split(
     smart_cuts: Annotated[bool, Form()] = True,
     protect_top_pct: Annotated[float, Form(ge=0, le=60)] = 0.0,
     label_joints: Annotated[bool, Form()] = True,
+    connector: Annotated[Literal["pinos", "macho_femea"], Form()] = "pinos",
+    target_size_mm: Annotated[float, Form(ge=0, le=5000)] = 0.0,
+    target_dim: Annotated[Literal["altura", "maior"], Form()] = "altura",
 ) -> SplitJob:
     """Peça grande → pedaços que cabem na impressora escolhida, com furos e pinos de encaixe."""
     printer = await session.get(Printer, printer_id)
@@ -130,6 +133,9 @@ async def split(
             "smart_cuts": smart_cuts,
             "protect_top_pct": protect_top_pct,
             "label_joints": label_joints,
+            "connector": connector,
+            "target_size_mm": target_size_mm,
+            "target_dim": target_dim,
         },
     )
     if job is None:

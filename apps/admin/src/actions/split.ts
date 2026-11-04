@@ -12,7 +12,16 @@ export async function startSplit(form: FormData): Promise<SplitStart> {
   if (!(file instanceof File) || file.size === 0) return { error: "Escolha um arquivo STL." };
   const body = new FormData();
   body.append("file", file, file.name);
-  for (const key of ["printer_id", "pin_diameter_mm", "clearance_mm", "margin_mm", "protect_top_pct"]) {
+  for (const key of [
+    "printer_id",
+    "pin_diameter_mm",
+    "clearance_mm",
+    "margin_mm",
+    "protect_top_pct",
+    "connector",
+    "target_size_mm",
+    "target_dim",
+  ]) {
     const value = String(form.get(key) ?? "").replace(",", ".");
     if (value) body.append(key, value);
   }

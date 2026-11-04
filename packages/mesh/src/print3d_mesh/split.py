@@ -5,14 +5,17 @@
 2. Furos: em cada plano de corte interno, acha onde EXISTE material naquele plano (seção da
    malha) e abre furos cilíndricos atravessando o corte — metade em cada pedaço vizinho.
 3. Corte: interseção booleana (manifold3d) da peça furada com cada célula → pedaços fechados.
-4. Pinos: cilindros soltos (um por furo), um pouco menores que o furo, para imprimir e colar.
+4. Encaixe: pinos soltos (um por furo, um pouco menores, para imprimir e colar) ou macho e
+   fêmea (o pino já sai preso num pedaço e o vizinho tem só o furo).
+
+Antes de tudo, a peça pode ser escalada para um tamanho final (altura ou maior lado).
 """
 
 import itertools
 import math
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import cast
+from typing import Literal, cast
 
 import numpy as np
 import trimesh
@@ -25,6 +28,11 @@ from print3d_mesh.analysis import fits_build_volume
 # Eixos do plano de corte em ordem cíclica (mantém a transformação sem espelhamento).
 _PLANE_AXES = {0: (1, 2), 1: (2, 0), 2: (0, 1)}
 _MAX_CUTS_PER_AXIS = 12
+_PEG_FUSE_MM = 0.4  # quanto o pino macho entra no próprio pedaço (funde na união)
+_PEG_TIP_GAP_MM = 0.5  # folga entre a ponta do macho e o fundo do furo
+
+type Connector = Literal["pinos", "macho_femea"]
+type TargetDim = Literal["altura", "maior"]
 
 
 class SplitError(Exception):
@@ -46,6 +54,14 @@ class SplitOptions:
     label_joints: bool = True  # letra gravada nas duas faces de cada junção (A com A)
     label_size_mm: float = 5.0
     label_depth_mm: float = 0.6
+    connector: Connector = "pinos"
+    target_size_mm: float = 0.0  # 0 = tamanho do arquivo
+    target_dim: TargetDim = "altura"  # altura (Z) ou maior lado
+
+    @property
+    def peg_mm(self) -> float:
+        """Quanto o pino macho sobressai do pedaço, no eixo do corte."""
+        return self.pin_depth_mm if self.connector == "macho_femea" else 0.0
 
 
 @dataclass(frozen=True)
@@ -76,6 +92,8 @@ class SplitResult:
     seam_area_mm2: float = 0.0
     labels: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    scale: float = 1.0
+    size_mm: tuple[float, float, float] = (0.0, 0.0, 0.0)  # tamanho final da peça inteira
 
 
 def plan_split(extents: tuple[float, float, float], options: SplitOptions) -> SplitPlan:
@@ -85,7 +103,10 @@ def plan_split(extents: tuple[float, float, float], options: SplitOptions) -> Sp
         raise SplitError("mesa menor que a folga de borda")
     best: tuple[int, int, int, tuple[int, ...]] | None = None
     for counts in itertools.product(range(1, _MAX_CUTS_PER_AXIS + 1), repeat=3):
-        cell = tuple(e / n for e, n in zip(extents, counts, strict=True))
+        # macho e fêmea: o pino sobressai do pedaço só nos eixos que têm corte
+        cell = tuple(
+            e / n + (options.peg_mm if n > 1 else 0.0) for e, n in zip(extents, counts, strict=True)
+        )
         if not fits_build_volume(cell, bed, margin_mm=0):  # type: ignore[arg-type]
             continue
         key = (math.prod(counts), sum(counts), max(counts), counts)
@@ -162,8 +183,10 @@ def _cylinder(axis: int, center: np.ndarray, radius: float, length: float) -> tr
 type TextFactory = Callable[[str], trimesh.Trimesh]
 
 
-def _axis_limits(cell: tuple[float, ...], options: SplitOptions) -> list[float]:
+def _axis_limits(plan: SplitPlan, options: SplitOptions) -> list[float]:
     """Comprimento máximo de pedaço em cada eixo, na orientação de mesa com mais folga."""
+    peg = [options.peg_mm if n > 1 else 0.0 for n in plan.counts]
+    cell = [c + p for c, p in zip(plan.cell_mm, peg, strict=True)]
     bed = [b - options.margin_mm for b in options.bed_mm]
     best: tuple[float, list[float]] | None = None
     for perm in itertools.permutations(range(3)):
@@ -172,7 +195,7 @@ def _axis_limits(cell: tuple[float, ...], options: SplitOptions) -> list[float]:
             slack = sum(limits[a] - cell[a] for a in range(3))
             if best is None or slack > best[0]:
                 best = (slack, limits)
-    return best[1] if best else list(cell)
+    return [lim - p for lim, p in zip(best[1] if best else cell, peg, strict=True)]
 
 
 def _section_area(mesh: trimesh.Trimesh, axis: int, coord: float) -> float:
@@ -304,14 +327,28 @@ def _label_point(
     return max(far, key=lambda p: min((math.dist(p, q) for q in pins), default=0.0))
 
 
+def scale_factor(extents: tuple[float, float, float], options: SplitOptions) -> float:
+    """Fator para a peça chegar ao tamanho final pedido (1 = tamanho do arquivo)."""
+    if options.target_size_mm <= 0:
+        return 1.0
+    reference = extents[2] if options.target_dim == "altura" else max(extents)
+    if reference <= 0:
+        raise SplitError("peça sem altura: não dá para escalar")
+    return options.target_size_mm / reference
+
+
 def split_mesh(
     mesh: trimesh.Trimesh, options: SplitOptions, text_factory: TextFactory | None = None
 ) -> SplitResult:
     if not mesh.is_watertight:
         raise SplitError("malha aberta: repare a peça antes de dividir")
+    scale = scale_factor(tuple(float(e) for e in mesh.extents), options)  # type: ignore[arg-type]
+    if scale != 1.0:
+        mesh = mesh.copy()
+        mesh.apply_scale(scale)  # type: ignore[no-untyped-call]
     lo, hi = mesh.bounds
     plan = plan_split(tuple(float(e) for e in hi - lo), options)  # type: ignore[arg-type]
-    limits = _axis_limits(plan.cell_mm, options)
+    limits = _axis_limits(plan, options)
     warnings: list[str] = []
     cuts = {
         a: _best_cuts(
@@ -323,6 +360,7 @@ def split_mesh(
 
     cutters: list[trimesh.Trimesh] = []
     pins: list[trimesh.Trimesh] = []
+    pegs: list[tuple[np.ndarray, trimesh.Trimesh]] = []  # (ponto no pedaço dono, pino macho)
     labels: list[str] = []
     faces_without_pins = 0
     seam_area = 0.0
@@ -351,6 +389,21 @@ def split_mesh(
                 for pu, pv in points:
                     center = np.zeros(3)
                     center[axis], center[u], center[v] = coord, pu, pv
+                    if options.connector == "macho_femea":
+                        # fêmea: furo só no pedaço de cima; macho: pino preso no de baixo
+                        depth = options.pin_depth_mm
+                        hole = center.copy()
+                        hole[axis] = coord + depth / 2
+                        cutters.append(_cylinder(axis, hole, hole_r, depth + 0.02))
+                        peg_len = depth - _PEG_TIP_GAP_MM + _PEG_FUSE_MM
+                        peg = center.copy()
+                        peg[axis] = coord - _PEG_FUSE_MM + peg_len / 2
+                        owner = center.copy()
+                        owner[axis] = coord - _PEG_FUSE_MM / 2
+                        pegs.append(
+                            (owner, _cylinder(axis, peg, options.pin_diameter_mm / 2, peg_len))
+                        )
+                        continue
                     cutters.append(_cylinder(axis, center, hole_r, hole_len))
                     pins.append(
                         trimesh.creation.cylinder(
@@ -388,6 +441,11 @@ def split_mesh(
         part = drilled.intersection(cell, engine="manifold")
         if part.is_empty or part.volume <= 1e-6:
             continue  # célula vazia (ex.: peça em L)
+        own = [peg for point, peg in pegs if np.all(point >= cell_lo) and np.all(point <= cell_hi)]
+        if own:
+            part = part.union(
+                cast(trimesh.Trimesh, trimesh.util.concatenate(own)), engine="manifold"
+            )
         name = "peca_" + "_".join(str(i + 1) for i in idx)
         extents = tuple(float(e) for e in part.extents)
         pieces.append(
@@ -411,4 +469,6 @@ def split_mesh(
         seam_area_mm2=round(seam_area, 1),
         labels=labels,
         warnings=warnings,
+        scale=round(scale, 4),
+        size_mm=cast(tuple[float, float, float], tuple(round(float(e), 1) for e in hi - lo)),
     )

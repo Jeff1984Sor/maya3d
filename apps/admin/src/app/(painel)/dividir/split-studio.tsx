@@ -15,7 +15,10 @@ type Report = {
   seam_area_cm2: number;
   labels: string[];
   warnings: string[];
+  scale?: number;
+  size_mm?: number[];
   exploded: string;
+  project?: string;
   zip: string;
 };
 
@@ -86,6 +89,21 @@ export function SplitStudio({ printers }: { printers: Printer[] }) {
             ))}
           </select>
         </Label>
+        <Label label="Encaixe">
+          <select name="connector" defaultValue="pinos" className={inputClass}>
+            <option value="pinos">Pinos soltos (imprime à parte e cola)</option>
+            <option value="macho_femea">Macho e fêmea (pino já preso num pedaço)</option>
+          </select>
+        </Label>
+        <Label label="Tamanho final (mm)" hint="vazio = tamanho do arquivo; ex.: 600 para 60 cm">
+          <input name="target_size_mm" inputMode="decimal" placeholder="tamanho do arquivo" className={inputClass} />
+        </Label>
+        <Label label="Medir o tamanho final pela">
+          <select name="target_dim" defaultValue="altura" className={inputClass}>
+            <option value="altura">Altura</option>
+            <option value="maior">Maior lado</option>
+          </select>
+        </Label>
         <Label label="Diâmetro do pino (mm)" hint="pode usar filamento 1,75 mm ou palito no lugar">
           <input name="pin_diameter_mm" defaultValue="4" inputMode="decimal" className={inputClass} />
         </Label>
@@ -126,9 +144,21 @@ export function SplitStudio({ printers }: { printers: Printer[] }) {
               <Badge>{report.pins.count} pino(s)</Badge>
               <Badge>emenda {report.seam_area_cm2} cm²</Badge>
               {report.labels.length > 0 && <Badge>letras {report.labels.join(", ")}</Badge>}
-              <a href={url(report.zip)} className="ml-auto rounded-xl bg-primary px-4 py-2 font-medium text-white">
-                Baixar tudo (.zip)
-              </a>
+              {report.size_mm && (
+                <Badge>
+                  peça {report.size_mm.join(" × ")} mm{report.scale && report.scale !== 1 ? ` (escala ${report.scale}×)` : ""}
+                </Badge>
+              )}
+              <div className="ml-auto flex gap-2">
+                {report.project && (
+                  <a href={url(report.project)} className="rounded-xl bg-primary px-4 py-2 font-medium text-white">
+                    Abrir no Bambu Studio (.3mf)
+                  </a>
+                )}
+                <a href={url(report.zip)} className="rounded-xl border border-border px-4 py-2 font-medium">
+                  Baixar tudo (.zip)
+                </a>
+              </div>
             </div>
             {report.warnings.map((w) => (
               <Alert key={w} tone="error">
@@ -172,8 +202,9 @@ export function SplitStudio({ printers }: { printers: Printer[] }) {
               )}
             </ul>
             <p className="text-xs text-muted">
-              Montagem: junte as faces com a mesma letra gravada (A com A). Encaixe os pinos com cola nos furos de um lado, passe cola na
-              face e feche com o vizinho. O nome do arquivo indica a posição (Pedaço 1_2_1 = 1º no comprimento, 2º na largura, 1º na
+              Montagem: junte as faces com a mesma letra gravada (A com A). Com pinos soltos, encaixe os pinos com cola nos furos de um
+              lado; com macho e fêmea, o pino já vem preso. Passe cola na face e feche com o vizinho. No Bambu Studio, abra o .3mf e
+              use &quot;Arrumar&quot; (tecla A) para distribuir os pedaços nas mesas. O nome do arquivo indica a posição (Pedaço 1_2_1 = 1º no comprimento, 2º na largura, 1º na
               altura).
             </p>
           </>

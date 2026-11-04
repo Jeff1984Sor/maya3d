@@ -133,3 +133,44 @@ def test_letras_reais_com_openscad() -> None:
     result = split_mesh(trimesh.creation.box((500, 100, 60)), SplitOptions(bed_mm=BED), factory)
     assert result.labels == ["A"]
     assert all(p.mesh.is_watertight for p in result.pieces)
+
+
+def test_escala_para_altura_final() -> None:
+    # caixa de 100 mm de altura pedida com 600 mm: escala 6x e precisa de cortes na altura
+    mesh = trimesh.creation.box((50, 50, 100))
+    result = split_mesh(mesh, SplitOptions(bed_mm=BED, target_size_mm=600, label_joints=False))
+    assert result.scale == 6.0
+    assert result.size_mm == (300.0, 300.0, 600.0)
+    assert result.plan.counts[2] >= 3
+    assert all(p.fits for p in result.pieces)
+
+
+def test_escala_pelo_maior_lado() -> None:
+    mesh = trimesh.creation.box((200, 50, 20))
+    options = SplitOptions(bed_mm=BED, target_size_mm=100, target_dim="maior")
+    result = split_mesh(mesh, options)
+    assert result.scale == 0.5
+    assert len(result.pieces) == 1
+
+
+def test_macho_femea_reserva_mesa_para_o_pino() -> None:
+    # 2 x 250 + 8 mm de pino macho não cabe em 256 - 3 de folga: precisa de 3 pedaços
+    mesh = trimesh.creation.box((500, 100, 60))
+    options = SplitOptions(bed_mm=BED, connector="macho_femea", label_joints=False)
+    assert len(split_mesh(mesh, options).pieces) == 3
+
+
+def test_macho_femea_prende_o_pino_num_lado() -> None:
+    mesh = trimesh.creation.box((480, 100, 60))
+    options = SplitOptions(
+        bed_mm=BED, connector="macho_femea", label_joints=False, smart_cuts=False
+    )
+    result = split_mesh(mesh, options)
+    assert len(result.pieces) == 2
+    assert result.pins == []  # nada solto para imprimir
+    assert all(p.mesh.is_watertight and p.fits for p in result.pieces)
+    first, second = sorted(result.pieces, key=lambda p: p.mesh.bounds[0][0])
+    # o de baixo ganha o macho (passa do corte); o de cima perde material (furo)
+    assert first.mesh.bounds[1][0] > second.mesh.bounds[0][0] + 5
+    assert first.mesh.volume > mesh.volume / 2
+    assert second.mesh.volume < mesh.volume / 2
