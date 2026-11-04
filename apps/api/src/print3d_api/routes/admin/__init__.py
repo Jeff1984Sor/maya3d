@@ -25,6 +25,7 @@ from print3d_api.routes.admin import (
     parametric,
     payments,
     photo,
+    photo3d,
     pricing,
     products,
     shopee,
@@ -132,6 +133,7 @@ router.include_router(products.router)
 router.include_router(orders.router)
 router.include_router(ai.router)
 router.include_router(photo.router)
+router.include_router(photo3d.router)
 router.include_router(integrations.router)
 router.include_router(library.router)
 router.include_router(content.router)

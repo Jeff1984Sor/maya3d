@@ -5,7 +5,7 @@ import { startPhoto } from "@/actions/photo";
 import { StlViewer } from "@print3d/shared/stl-viewer";
 import { Alert, Badge, Button, Label, inputClass } from "@/components/ui";
 
-type Mode = "litofania" | "placa_multicor" | "cortador" | "chaveiro_silhueta";
+type Mode = "litofania" | "placa_multicor" | "cortador" | "chaveiro_silhueta" | "objeto_3d";
 type Field = { name: string; label: string; value: string; hint?: string };
 
 const MODES: { key: Mode; title: string; text: string; fields: Field[]; invert?: boolean }[] = [
@@ -49,6 +49,12 @@ const MODES: { key: Mode; title: string; text: string; fields: Field[]; invert?:
     ],
     invert: true,
   },
+  {
+    key: "objeto_3d",
+    title: "Objeto 3D (IA)",
+    text: "A foto vira uma peça 3D de verdade (estatueta do pet, pessoa, objeto). Usa créditos da Meshy; leva 1–3 min.",
+    fields: [{ name: "size_mm", label: "Tamanho (maior lado, mm)", value: "150", hint: "maior que a mesa? depois use Dividir peça grande" }],
+  },
 ];
 
 type Report = {
@@ -56,9 +62,26 @@ type Report = {
   combined: string;
   bbox_mm: number[];
   parts: { name: string; file: string }[];
+  project?: string;
   info: { faixas?: { parte: string; cor: string; de_mm: number; ate_mm: number }[]; trocar_filamento_em_mm?: number[]; dica?: string; aviso?: string };
-  zip: string;
+  zip?: string;
 };
+
+type AiResult = { prefix: string; model: string; project: string; bbox_mm: number[]; watertight: boolean; credits?: number | null };
+
+function fromAi(r: AiResult): Report {
+  return {
+    prefix: r.prefix,
+    combined: r.model,
+    bbox_mm: r.bbox_mm,
+    parts: [],
+    project: r.project,
+    info: {
+      dica: `Peça gerada pela IA${r.credits ? ` (${r.credits} créditos)` : ""}. Confira no Bambu Studio se precisa de suporte; se for maior que a mesa, baixe o STL e use Dividir peça grande.`,
+      aviso: r.watertight ? undefined : "A malha veio com furos que não deu para fechar: o fatiador costuma consertar, mas Dividir peça grande vai recusar.",
+    },
+  };
+}
 
 export function PhotoStudio() {
   const [mode, setMode] = useState<Mode>("litofania");
@@ -66,20 +89,23 @@ export function PhotoStudio() {
   const [status, setStatus] = useState<string | null>(null);
   const [report, setReport] = useState<Report | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
   const [pending, start] = useTransition();
   const current = MODES.find((m) => m.key === mode)!;
 
   useEffect(() => {
     if (!jobId) return;
     let stop = false;
+    const ai = jobId.startsWith("ia:");
     const tick = async () => {
-      const res = await fetch(`/api/jobs/${jobId}`, { cache: "no-store" });
-      const data = (await res.json()) as { status: string; result?: Report; error?: string };
+      const res = await fetch(ai ? `/api/photo3d/${jobId.slice(3)}` : `/api/jobs/${jobId}`, { cache: "no-store" });
+      const data = (await res.json()) as { status: string; result?: Report & AiResult; error?: string; progress?: number };
       if (stop) return;
       setStatus(data.status);
-      if (data.status === "concluido" && data.result) setReport(data.result);
+      setProgress(data.progress ?? 0);
+      if (data.status === "concluido" && data.result) setReport(ai ? fromAi(data.result) : data.result);
       else if (data.status === "falhou" || !res.ok) setError(data.error ?? "Falha ao gerar.");
-      else setTimeout(tick, 1500);
+      else setTimeout(tick, ai ? 5000 : 1500);
     };
     void tick();
     return () => {
@@ -90,6 +116,7 @@ export function PhotoStudio() {
   function submit(form: FormData) {
     setError(null);
     setReport(null);
+    setProgress(0);
     setStatus("enviando");
     start(async () => {
       const res = await startPhoto(form);
@@ -135,7 +162,7 @@ export function PhotoStudio() {
           )}
         </div>
         <Button type="submit" disabled={busy}>
-          {busy ? "Gerando…" : `Gerar ${current.title.toLowerCase()}`}
+          {busy ? (progress > 0 ? `Gerando… ${progress}%` : "Gerando…") : `Gerar ${current.title.toLowerCase()}`}
         </Button>
       </form>
 
@@ -146,9 +173,19 @@ export function PhotoStudio() {
             <StlViewer key={report.prefix} url={url(report.combined)} color={mode === "litofania" ? "#F7F4EF" : "#14B8A6"} />
             <div className="flex flex-wrap items-center gap-2 text-sm">
               <Badge tone="ok">{report.bbox_mm.join(" × ")} mm</Badge>
-              <a href={url(report.zip)} className="ml-auto rounded-xl bg-primary px-4 py-2 font-medium text-white">
-                Baixar tudo (.zip)
-              </a>
+              <div className="ml-auto flex gap-2">
+                {report.project && (
+                  <a href={url(report.project)} className="rounded-xl bg-primary px-4 py-2 font-medium text-white">
+                    Abrir no Bambu Studio (.3mf)
+                  </a>
+                )}
+                <a
+                  href={url(report.zip ?? report.combined)}
+                  className={report.project ? "rounded-xl border border-border px-4 py-2 font-medium" : "rounded-xl bg-primary px-4 py-2 font-medium text-white"}
+                >
+                  {report.zip ? "Baixar tudo (.zip)" : "Baixar STL"}
+                </a>
+              </div>
             </div>
             {report.info.faixas && (
               <div className="rounded-xl border border-border p-3 text-sm">

@@ -16,6 +16,7 @@ dependencies = [
     "pillow>=11.0",  # foto vira peça
     "lxml>=5.3",  # leitura de 3MF (Biblioteca de modelos)
     "fast-simplification>=0.1",  # malha leve para a prévia 3D da loja
+    "httpx>=0.28",  # foto vira objeto 3D (serviço de IA externo)
 ]
 # Próximas partes: manifold3d (reparo/booleanas), build123d (paramétricos). Blender e fatiador
 # rodam em containers próprios.

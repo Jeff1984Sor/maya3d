@@ -52,6 +52,12 @@ const GROUPS = [
     help: "Cotação automática de Correios e transportadoras para fora de Sorocaba. Gere o token no painel do Melhor Envio e preencha também o CEP de origem em Operação.",
     next: { href: "/operacao", label: "CEP de origem →" },
   },
+  {
+    id: "foto3d",
+    title: "Foto vira objeto 3D (Meshy)",
+    help: "Gera uma peça 3D de verdade a partir de uma foto. Crie a conta em meshy.ai (a API precisa do plano Pro), gere a chave em API e cole aqui. Cada peça gasta créditos da Meshy (5 a 20).",
+    next: { href: "/foto", label: "Foto vira peça →" },
+  },
 ] as const;
 
 function FieldInput({ f }: { f: IntegrationField }) {

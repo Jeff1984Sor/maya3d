@@ -21,6 +21,7 @@ from print3d_api.models import IntegrationSetting
 from print3d_api.services import audit
 from print3d_channels.shipping import MelhorEnvio, ShippingQuoter
 from print3d_core.security import TokenVault, TokenVaultError
+from print3d_mesh.image3d import ImageTo3D, MeshyImageTo3D
 from print3d_notify.meta import WhatsAppSettings
 
 log = logging.getLogger("print3d.integrations")
@@ -137,6 +138,19 @@ FIELDS: tuple[Field, ...] = (
         "frete",
         "Serviços (opcional)",
         hint="IDs separados por vírgula; vazio = todos",
+    ),
+    Field(
+        "MESHY_API_KEY",
+        "foto3d",
+        "Chave da API da Meshy",
+        secret=True,
+        hint="meshy.ai → API → criar chave (precisa do plano Pro)",
+    ),
+    Field(
+        "MESHY_MODEL",
+        "foto3d",
+        "Modelo da Meshy (opcional)",
+        hint="vazio = o mais novo; meshy-6-lite gasta menos créditos",
     ),
 )
 BY_KEY = {f.key: f for f in FIELDS}
@@ -314,3 +328,14 @@ async def shipping_quoter(session: AsyncSession) -> ShippingQuoter | None:
 def env_value(key: str) -> str | None:
     """Valor do .env para chaves sem classe de configuração própria."""
     return os.environ.get(key) or None
+
+
+async def image_to_3d(session: AsyncSession) -> ImageTo3D | None:
+    """Serviço de foto → objeto 3D (Meshy) configurado (painel > .env) ou None."""
+    values = await load(session)
+
+    def get(key: str) -> str | None:
+        return values.get(key) or os.environ.get(key) or None
+
+    key = get("MESHY_API_KEY")
+    return MeshyImageTo3D(key, model=get("MESHY_MODEL")) if key else None

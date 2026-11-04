@@ -9,7 +9,7 @@ export default function FotoPage() {
     <>
       <PageHeader
         title="Foto vira peça"
-        description="Litofania, placa multicor, cortador de biscoito e chaveiro de silhueta a partir de uma imagem. As fotos são apagadas automaticamente após o prazo da LGPD."
+        description="Litofania, placa multicor, cortador de biscoito, chaveiro de silhueta e objeto 3D por IA a partir de uma imagem. As fotos são apagadas automaticamente após o prazo da LGPD."
       />
       <Card>
         <PhotoStudio />

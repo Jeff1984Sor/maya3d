@@ -1519,6 +1519,7 @@ version = "0.1.0"
 source = { editable = "packages/mesh" }
 dependencies = [
     { name = "fast-simplification" },
+    { name = "httpx" },
     { name = "lxml" },
     { name = "manifold3d" },
     { name = "networkx" },
@@ -1534,6 +1535,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "fast-simplification", specifier = ">=0.1" },
+    { name = "httpx", specifier = ">=0.28" },
     { name = "lxml", specifier = ">=5.3" },
     { name = "manifold3d", specifier = ">=3.0" },
     { name = "networkx", specifier = ">=3.3" },
