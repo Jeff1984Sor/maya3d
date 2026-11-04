@@ -5,6 +5,7 @@ import { signOut } from "../login/actions";
 
 const TOOLS = [
   { href: "/", label: "Visão geral" },
+  { href: "/assistente", label: "🤖 Assistente" },
   { href: "/producao", label: "Produção" },
   { href: "/pedidos", label: "Pedidos" },
   { href: "/fila", label: "Fila de impressão" },

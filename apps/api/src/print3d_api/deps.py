@@ -5,6 +5,7 @@ from pathlib import Path
 from arq.connections import ArqRedis
 from fastapi import Request
 
+from print3d_ai.image_search import ImageSearch, OpenverseSearch
 from print3d_api.config import Settings
 from print3d_api.health import HealthChecker
 from print3d_api.services import ai, search
@@ -49,3 +50,9 @@ def get_embedder_factory(request: Request) -> search.EmbedderFactory:
         request.app.state, "embedder_factory", search.default_embedder_factory
     )
     return factory
+
+
+def get_image_search(request: Request) -> ImageSearch:
+    """Busca de imagens do assistente (trocável nos testes por app.state.image_search)."""
+    search_: ImageSearch | None = getattr(request.app.state, "image_search", None)
+    return search_ if search_ is not None else OpenverseSearch()

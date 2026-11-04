@@ -41,7 +41,7 @@ export async function adminApi<T>(path: string, init: RequestInit = {}): Promise
       "x-admin-token": process.env.ADMIN_API_TOKEN ?? "",
       ...init.headers,
     },
-    signal: AbortSignal.timeout(15000),
+    signal: init.signal ?? AbortSignal.timeout(15000),
   });
   if (res.status === 204) return undefined as T;
   const body = (await res.json().catch(() => ({}))) as { detail?: Detail };

@@ -1425,6 +1425,7 @@ version = "0.1.0"
 source = { editable = "packages/ai" }
 dependencies = [
     { name = "anthropic" },
+    { name = "httpx" },
     { name = "openai" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
@@ -1433,6 +1434,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "anthropic", specifier = ">=0.70" },
+    { name = "httpx", specifier = ">=0.28" },
     { name = "openai", specifier = ">=1.50" },
     { name = "pydantic", specifier = ">=2.10" },
     { name = "pydantic-settings", specifier = ">=2.7" },

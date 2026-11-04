@@ -13,6 +13,7 @@ from print3d_api.models import (
     Printer,
 )
 from print3d_api.routes.admin import (
+    agent,
     ai,
     content,
     costs,
@@ -132,6 +133,7 @@ router.include_router(parametric.router)
 router.include_router(products.router)
 router.include_router(orders.router)
 router.include_router(ai.router)
+router.include_router(agent.router)
 router.include_router(photo.router)
 router.include_router(photo3d.router)
 router.include_router(integrations.router)

@@ -1,7 +1,6 @@
 """Foto vira peça pelo painel. O dono declarou ter direito sobre as fotos que envia
 (registrado na auditoria); na loja, o cliente confirma a cada envio (spec 3 e LGPD)."""
 
-import uuid
 from typing import Annotated, Literal
 
 from arq.connections import ArqRedis
@@ -12,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from print3d_api.config import Settings
 from print3d_api.db.session import get_session
 from print3d_api.deps import get_app_settings, get_queue, get_storage
-from print3d_api.services import audit
+from print3d_api.services import photos
 from print3d_core.storage import LocalStorage
 
 router = APIRouter(prefix="/photo", tags=["admin: foto vira peça"])
@@ -52,11 +51,6 @@ async def photo_to_part(
         raise HTTPException(
             status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, f"máximo {settings.max_upload_mb} MB"
         )
-    key = f"uploads/fotos/{uuid.uuid4().hex}.{ext}"
-    path = storage.local_path(key)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(data)
-
     params = {
         "width_mm": width_mm,
         "size_mm": size_mm,
@@ -68,17 +62,17 @@ async def photo_to_part(
         "height_mm": height_mm,
         "invert": invert,
     }
-    job = await queue.enqueue_job("photo_to_part", key, mode, params)
-    if job is None:
-        raise HTTPException(status.HTTP_409_CONFLICT, "job duplicado")
-    await audit.record(
-        session,
-        actor="admin",
-        action="foto_enviada",
-        entity_type="foto",
-        entity_id=job.job_id,
-        reason="direito de uso declarado pelo dono; apagada após o prazo LGPD",
-        payload={"modo": mode, "arquivo": key},
-    )
-    await session.commit()
-    return PhotoJob(job_id=job.job_id)
+    try:
+        job_id = await photos.enqueue_part(
+            session,
+            storage,
+            queue,
+            data=data,
+            ext=ext,
+            mode=mode,
+            params=params,
+            reason="direito de uso declarado pelo dono; apagada após o prazo LGPD",
+        )
+    except photos.PhotoQueueError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    return PhotoJob(job_id=job_id)

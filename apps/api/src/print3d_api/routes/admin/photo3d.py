@@ -4,7 +4,6 @@ o modelo, conserta, põe no tamanho pedido e grava STL + 3MF. O dono declarou te
 a foto (auditoria); a foto e o resultado seguem o prazo LGPD das fotos."""
 
 import json
-import uuid
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -17,13 +16,13 @@ from starlette.concurrency import run_in_threadpool
 from print3d_api.config import Settings
 from print3d_api.db.session import get_session
 from print3d_api.deps import get_app_settings, get_storage
-from print3d_api.services import audit, integrations
+from print3d_api.services import integrations, photos
 from print3d_core.storage import LocalStorage
 from print3d_mesh.image3d import Image3DError, ImageTo3D, prepare_for_print
 
 router = APIRouter(prefix="/photo3d", tags=["admin: foto vira objeto 3D"])
 IMAGE_TYPES = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "webp": "image/webp"}
-PREFIX = "foto"  # mesma pasta das fotos: a limpeza LGPD já cobre
+PREFIX = photos.PREFIX  # mesma pasta das fotos: a limpeza LGPD já cobre
 
 
 class Photo3DState(BaseModel):
@@ -50,13 +49,8 @@ Provider = Annotated[ImageTo3D, Depends(get_image_to_3d)]
 Storage = Annotated[LocalStorage, Depends(get_storage)]
 
 
-def _folder(storage: LocalStorage, ref: str) -> Path:
-    return storage.local_path(f"{PREFIX}/ia-{ref}/tarefa.json").parent
-
-
-def _save(folder: Path, state: dict[str, Any]) -> None:
-    folder.mkdir(parents=True, exist_ok=True)
-    (folder / "tarefa.json").write_text(json.dumps(state, ensure_ascii=False))
+_folder = photos.task_folder
+_save = photos.save_task
 
 
 def _error_status(exc: Image3DError) -> int:
@@ -82,26 +76,18 @@ async def start(
     if len(data) > limit:
         raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "foto grande demais")
     try:
-        task_id = await provider.submit(data, IMAGE_TYPES[ext])
+        ref = await photos.start_3d(
+            session,
+            storage,
+            provider,
+            data=data,
+            mime=IMAGE_TYPES[ext],
+            ext=ext,
+            size_mm=size_mm,
+            reason="foto → objeto 3D (IA); direito de uso declarado pelo dono; prazo LGPD",
+        )
     except Image3DError as exc:
         raise HTTPException(_error_status(exc), str(exc)) from exc
-
-    ref = uuid.uuid4().hex
-    key = f"uploads/fotos/{ref}.{ext}"
-    path = storage.local_path(key)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(data)
-    _save(_folder(storage, ref), {"task_id": task_id, "size_mm": size_mm, "status": "fila"})
-    await audit.record(
-        session,
-        actor="admin",
-        action="foto_enviada",
-        entity_type="foto",
-        entity_id=ref,
-        reason="foto → objeto 3D (IA); direito de uso declarado pelo dono; prazo LGPD",
-        payload={"modo": "objeto_3d", "arquivo": key, "tarefa": task_id},
-    )
-    await session.commit()
     return Photo3DState(id=ref, status="fila")
 
 
