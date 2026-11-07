@@ -7,6 +7,7 @@ from arq import cron, func
 from arq.connections import RedisSettings
 
 from print3d_worker.config import get_worker_settings
+from print3d_worker.jobs.custom import generate_custom_scad
 from print3d_worker.jobs.library import process_library
 from print3d_worker.jobs.parametric import generate_parametric
 from print3d_worker.jobs.photo import photo_to_part, purge_old_photos
@@ -29,6 +30,7 @@ class ArqSettings:
     functions: ClassVar[list[Any]] = [
         ping,
         generate_parametric,
+        generate_custom_scad,
         split_model,
         photo_to_part,
         func(process_library, timeout=2 * 3600, max_tries=1),  # acervo grande: muitos STL

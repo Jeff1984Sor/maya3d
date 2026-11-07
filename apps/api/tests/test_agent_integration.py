@@ -192,6 +192,73 @@ def test_argumento_errado_volta_para_a_ia(client: TestClient, chat: FakeChat) ->
     assert "erro nos argumentos" in chat.prompts[-1]
 
 
+def test_plaquinhas_com_pe_viram_duas_propostas(client: TestClient, chat: FakeChat) -> None:
+    def plaque(line1: str) -> tuple[str, dict[str, Any]]:
+        params = {"line1": line1, "line2": "Mayris Pilates", "width_mm": 100, "mount": "pe"}
+        return ("gerar_parametrico", {"modelo": "placa-nome", "parametros": params})
+
+    chat.steps = [
+        _step("Vou ver os modelos.", ("listar_parametricos", {})),
+        _step("Confirme as duas placas abaixo.", plaque("Café"), plaque("Chá")),
+    ]
+    asked = _say(client, ("user", "2 plaquinhas Café e Chá com pezinho, Mayris Pilates, 10 cm"))
+    assert "placa-nome" in chat.prompts[1]  # a lista de modelos chegou inteira à IA
+    assert [p["tool"] for p in asked["proposals"]] == ["gerar_parametrico"] * 2
+    assert "Café" in asked["proposals"][0]["summary"]
+    done = client.post(
+        f"/v1/admin/agent/proposals/{asked['proposals'][1]['id']}/confirm", headers=H
+    ).json()
+    assert done["job"].startswith("fila:")
+
+
+def test_parametro_invalido_volta_para_a_ia(client: TestClient, chat: FakeChat) -> None:
+    bad = {"modelo": "placa-nome", "parametros": {"line1": "Café", "width_mm": 10}}
+    chat.steps = [
+        _step("Confirme abaixo.", ("gerar_parametrico", bad)),
+        _step("A largura mínima é 60 mm. Quer 60?"),
+    ]
+    reply = _say(client, ("user", "placa de 1 cm"))
+    assert reply["proposals"] == []
+    assert "erro nos argumentos" in chat.prompts[-1]
+
+
+def test_botao_prometido_sem_ferramenta_e_corrigido(client: TestClient, chat: FakeChat) -> None:
+    chat.steps = [
+        _step("Vou gerar os modelos. Confirme no botão abaixo."),  # mentira: nenhuma chamada
+        _step("Não tenho como fazer isso por aqui; use a tela Paramétricos."),
+    ]
+    reply = _say(client, ("user", "faz uma coisa diferente"))
+    assert "não existe botão" in chat.prompts[-1]
+    assert reply["reply"] == "Não tenho como fazer isso por aqui; use a tela Paramétricos."
+    assert reply["proposals"] == []
+
+
+def test_sem_modelo_o_assistente_desenha_a_peca(client: TestClient, chat: FakeChat) -> None:
+    base = "cube([100, 6, 50]); translate([40, -14, 0]) cube([20, 34, 4]);"
+    text = 'translate([50, 0, 30]) rotate([90, 0, 0]) linear_extrude(1) text("Café", size=10);'
+    piece = {
+        "nome": "Plaquinha Café em pé",
+        "partes": [{"nome": "base", "scad": base}, {"nome": "texto", "scad": text}],
+    }
+    chat.steps = [_step("Desenhei a plaquinha; a prévia aparece abaixo.", ("criar_peca", piece))]
+    reply = _say(client, ("user", "plaquinha Café em pé, de um jeito diferente"))
+    assert reply["proposals"] == []  # criar não altera a loja: gera na hora
+    assert [j["title"] for j in reply["jobs"]] == ["Plaquinha Café em pé"]
+    assert reply["jobs"][0]["job"].startswith("fila:")
+    assert base in reply["memo"]  # código volta na conversa para a IA poder ajustar
+
+
+def test_codigo_que_le_arquivo_e_recusado(client: TestClient, chat: FakeChat) -> None:
+    bad = {"nome": "x", "partes": [{"nome": "base", "scad": 'import("/srv/print3d/.env");'}]}
+    chat.steps = [
+        _step("Prévia abaixo.", ("criar_peca", bad)),
+        _step("Não consegui desenhar desse jeito."),
+    ]
+    reply = _say(client, ("user", "faz a peça"))
+    assert reply["jobs"] == []
+    assert "sem ler arquivos" in chat.prompts[-1]
+
+
 def test_ultima_fala_tem_que_ser_do_dono(client: TestClient) -> None:
     res = client.post(
         "/v1/admin/agent/chat", json={"turns": [{"role": "assistant", "content": "oi"}]}, headers=H

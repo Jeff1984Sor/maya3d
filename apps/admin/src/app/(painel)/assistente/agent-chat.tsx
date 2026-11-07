@@ -2,7 +2,8 @@
 
 import { type FormEvent, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { askAgent, confirmProposal, type AgentTurn, type ImageCard, type Proposal } from "@/actions/agent";
+import { askAgent, confirmProposal, type AgentTurn, type ImageCard, type JobCard, type Proposal } from "@/actions/agent";
+import { StlViewer } from "@print3d/shared/stl-viewer";
 import { Alert, Badge, Button, inputClass } from "@/components/ui";
 
 type Entry = {
@@ -11,16 +12,25 @@ type Entry = {
   memo?: string;
   images?: ImageCard[];
   proposals?: Proposal[];
+  jobs?: JobCard[];
 };
 
 const EXAMPLES = ["Busca fotos de um cachorro sentado", "Quais produtos estão em rascunho?", "Como estão os pedidos?"];
 
 type JobFile = { label: string; href: string };
-type JobState = { status: string; progress?: number; files?: JobFile[]; error?: string };
-type JobResult = { prefix: string; combined?: string; zip?: string; model?: string; project?: string };
+type JobState = { status: string; progress?: number; files?: JobFile[]; issues?: string[]; error?: string; preview?: string };
+type JobResult = {
+  prefix: string;
+  combined?: string;
+  zip?: string;
+  model?: string;
+  project?: string;
+  files?: Record<string, string>; // paramétrico: parte → STL (uma cor por parte)
+  issues?: string[];
+};
 
-/** Acompanha a peça gerada depois da confirmação (fila do worker ou IA de 3D). */
-function JobProgress({ job }: { job: string }) {
+/** Acompanha a peça gerada (fila do worker ou IA de 3D); com onFix, erro vira pedido de correção. */
+function JobProgress({ job, onFix, preview }: { job: string; onFix?: (error: string) => void; preview?: boolean }) {
   const [state, setState] = useState<JobState>({ status: "fila" });
   useEffect(() => {
     let stop = false;
@@ -37,7 +47,9 @@ function JobProgress({ job }: { job: string }) {
         if (r.project) files.push({ label: "Abrir no Bambu Studio (.3mf)", href: href(r.project) });
         if (stl) files.push({ label: "STL", href: href(stl) });
         if (r.zip) files.push({ label: "Tudo (.zip)", href: href(r.zip) });
-        setState({ status: "concluido", files });
+        const parts = Object.entries(r.files ?? {});
+        if (parts.length > 1) for (const [part, file] of parts) files.push({ label: `parte: ${part}`, href: href(file) });
+        setState({ status: "concluido", files, issues: r.issues, preview: stl ? href(stl) : undefined });
       } else if (data.status === "falhou" || !res.ok) {
         setState({ status: "falhou", error: data.error ?? "falhou" });
       } else {
@@ -51,15 +63,34 @@ function JobProgress({ job }: { job: string }) {
     };
   }, [job]);
 
-  if (state.status === "falhou") return <Alert tone="error">{state.error}</Alert>;
+  if (state.status === "falhou") {
+    return (
+      <div className="space-y-2">
+        <Alert tone="error">{state.error}</Alert>
+        {onFix && (
+          <Button type="button" onClick={() => onFix(state.error ?? "falhou")}>
+            Pedir para corrigir
+          </Button>
+        )}
+      </div>
+    );
+  }
   if (state.status !== "concluido") return <p className="text-xs text-muted">Gerando… {state.progress ? `${state.progress}%` : ""}</p>;
   return (
-    <div className="flex flex-wrap gap-2">
-      {state.files?.map((f) => (
-        <a key={f.href} href={f.href} className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-white">
-          {f.label}
-        </a>
-      ))}
+    <div className="space-y-2">
+      {preview && state.preview && <StlViewer key={state.preview} url={state.preview} />}
+      <div className="flex flex-wrap gap-2">
+        {state.files?.map((f, i) => (
+          <a
+            key={f.href}
+            href={f.href}
+            className={i === 0 ? "rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-white" : "rounded-lg border border-border px-3 py-1.5 text-xs"}
+          >
+            {f.label}
+          </a>
+        ))}
+      </div>
+      {state.issues && state.issues.length > 0 && <Alert tone="error">{state.issues.join(" · ")}</Alert>}
     </div>
   );
 }
@@ -167,14 +198,14 @@ export function AgentChat() {
     setEntries(next);
     setError(null);
     if (input.current) input.current.value = "";
-    const turns: AgentTurn[] = next.map((e) => ({ role: e.role, content: (e.memo ?? e.text).slice(0, 4000) }));
+    const turns: AgentTurn[] = next.map((e) => ({ role: e.role, content: (e.memo ?? e.text).slice(0, 16000) }));
     start(async () => {
       const res = await askAgent(turns);
       if ("error" in res) {
         setError(res.error);
         return;
       }
-      setEntries([...next, { role: "assistant", text: res.reply, memo: res.memo, images: res.images, proposals: res.proposals }]);
+      setEntries([...next, { role: "assistant", text: res.reply, memo: res.memo, images: res.images, proposals: res.proposals, jobs: res.jobs }]);
     });
   }
 
@@ -202,9 +233,19 @@ export function AgentChat() {
               <ImageGrid images={e.images} onPick={(n) => send(`Quero usar a imagem ${n}. Que peça você sugere?`)} />
             )}
             {e.proposals?.map((p) => <ProposalCard key={p.id} proposal={p} />)}
+            {e.jobs?.map((j) => (
+              <div key={j.job} className="space-y-2 rounded-xl border border-border p-3 text-sm">
+                <p className="font-medium">🛠️ {j.title}</p>
+                <JobProgress
+                  job={j.job}
+                  preview
+                  onFix={(err) => send(`A peça "${j.title}" deu erro ao gerar: ${err.slice(0, 600)}. Corrija o código e gere de novo.`)}
+                />
+              </div>
+            ))}
           </div>
         ))}
-        {pending && <p className="text-sm text-muted">Pensando…</p>}
+        {pending && <p className="text-sm text-muted">Pensando… (desenhar uma peça pode levar até 1 minuto)</p>}
         <div ref={bottom} />
       </div>
       {error && <Alert tone="error">{error}</Alert>}

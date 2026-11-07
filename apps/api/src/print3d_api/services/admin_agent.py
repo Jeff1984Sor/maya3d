@@ -5,6 +5,7 @@ guardada no Redis por 1 hora e só roda quando o dono confirma (auditoria regist
 """
 
 import json
+import re
 import secrets
 from collections import Counter
 from dataclasses import dataclass, field
@@ -21,17 +22,27 @@ from print3d_ai.prompts import admin_agent
 from print3d_api.models import BrandSettings, Order, Product
 from print3d_api.models.brand import SINGLETON_ID
 from print3d_api.schemas.catalog import ProductPatch, ProductStatus
-from print3d_api.services import audit, catalog, integrations, photos
+from print3d_api.schemas.governance import GuardianCheckIn
+from print3d_api.services import audit, catalog, guardian, integrations, photos
 from print3d_api.services.ai import ProviderFactory, effective_settings
 from print3d_api.services.guardian import UnknownNicheError
 from print3d_core.storage import LocalStorage
+from print3d_mesh.custom import FONT_NAMES, CustomPart, CustomScadError, validate
 from print3d_mesh.image3d import Image3DError
+from print3d_mesh.parametric import MODELS
 
-MAX_STEPS = 4
+MAX_STEPS = 5
 PROPOSAL_TTL = 3600
 PROPOSAL_KEY = "agente:proposta:{}"
 PhotoMode = Literal["litofania", "placa_multicor", "cortador", "chaveiro_silhueta", "objeto_3d"]
 WIDTH_MODES = ("litofania", "placa_multicor")  # nesses, o tamanho é a largura
+# a IA falou em botão sem criar proposta: corrige uma vez (o dono via um botão que não existia)
+_PROMISES_BUTTON = re.compile(r"bot[aã]o|confirm", re.IGNORECASE)
+_NO_BUTTON = (
+    "[sistema] Você falou em botão/confirmar, mas NÃO chamou nenhuma ferramenta de alteração, "
+    "então não existe botão. Chame agora a ferramenta certa (ex.: listar_parametricos e "
+    "gerar_parametrico) ou diga com honestidade o que não dá para fazer."
+)
 
 
 class AgentError(Exception):
@@ -59,6 +70,21 @@ class PieceArgs(BaseModel):
     tamanho_mm: float = Field(default=120, ge=20, le=3000)
 
 
+class ParametricArgs(BaseModel):
+    modelo: str = Field(min_length=2, max_length=60)
+    parametros: dict[str, Any] = {}
+
+
+class CustomPartArgs(BaseModel):
+    nome: str = Field(min_length=1, max_length=24)
+    scad: str = Field(min_length=5, max_length=12_000)
+
+
+class CustomPieceArgs(BaseModel):
+    nome: str = Field(min_length=2, max_length=80)
+    partes: list[CustomPartArgs] = Field(min_length=1, max_length=4)
+
+
 class ProductChangeArgs(BaseModel):
     produto_id: int = Field(gt=0)
     titulo: str | None = Field(default=None, min_length=1, max_length=200)
@@ -83,11 +109,17 @@ class Proposal(BaseModel):
     summary: str
 
 
+class JobCard(BaseModel):
+    job: str  # "fila:<id>"
+    title: str
+
+
 class AgentReply(BaseModel):
     reply: str
-    memo: str  # o que o painel guarda na conversa (resposta + imagens mostradas)
+    memo: str  # o que o painel guarda na conversa (resposta + imagens + código das peças)
     images: list[ImageCard] = []
     proposals: list[Proposal] = []
+    jobs: list[JobCard] = []
 
 
 class ConfirmResult(BaseModel):
@@ -102,6 +134,8 @@ class _Run:
     images: ImageSearch
     shown: list[ImageHit] = field(default_factory=list)
     proposals: list[Proposal] = field(default_factory=list)
+    jobs: list[JobCard] = field(default_factory=list)
+    created: list[str] = field(default_factory=list)  # código das peças criadas (memo)
 
 
 async def _model(session: AsyncSession) -> str:
@@ -177,6 +211,96 @@ async def _propose(run: _Run, tool: str, args: BaseModel, summary: str, redis: A
     return f"proposta criada (aguarda o dono confirmar): {summary}"
 
 
+def _list_parametric() -> dict[str, Any]:
+    """Modelos e parâmetros (nome, opções, padrão, limites) em formato curto para a IA."""
+    out = []
+    for m in MODELS.values():
+        params = {}
+        for name, prop in m.params_model.model_json_schema().get("properties", {}).items():
+            options = prop.get("enum") or [
+                o["const"] for o in prop.get("anyOf", []) if "const" in o
+            ]
+            info = {"titulo": prop.get("title"), "padrao": prop.get("default")}
+            if options:
+                info["opcoes"] = options
+            for key, label in (("minimum", "min"), ("maximum", "max"), ("maxLength", "letras")):
+                if key in prop:
+                    info[label] = prop[key]
+            params[name] = info
+        out.append(
+            {"modelo": m.slug, "titulo": m.title, "descricao": m.description, "parametros": params}
+        )
+    return {"modelos": out}
+
+
+async def _check_texts(session: AsyncSession, slug: str, parsed: BaseModel) -> str | None:
+    """Texto livre da peça passa pelo Guardião (palavrão, marca, time...). None = aprovado."""
+    model = MODELS[slug]
+    texts = [str(v) for k in model.text_fields if (v := getattr(parsed, k, None))]
+    if not texts:
+        return None
+    verdict = await guardian.check(
+        session,
+        GuardianCheckIn(
+            niche=model.niche, title=model.title, origin="parametrico", customer_text=texts
+        ),
+    )
+    return None if verdict.approved else "; ".join(v.message for v in verdict.violations)
+
+
+async def _propose_parametric(run: _Run, redis: ArqRedis, args: ParametricArgs) -> str:
+    model = MODELS.get(args.modelo)
+    if model is None:
+        return f"erro: modelo '{args.modelo}' não existe; use listar_parametricos"
+    parsed = model.parse(args.parametros)  # ValidationError volta para a IA corrigir
+    refused = await _check_texts(run.session, args.modelo, parsed)
+    if refused:
+        return f"erro: texto recusado pelo Guardião: {refused}"
+    shown = ", ".join(f"{k}={v}" for k, v in args.parametros.items())
+    summary = f'Gerar "{model.title}": {shown}'
+    saved = ParametricArgs(modelo=args.modelo, parametros=parsed.model_dump(mode="json"))
+    return await _propose(run, "gerar_parametrico", saved, summary, redis)
+
+
+async def _create_piece(run: _Run, queue: ArqRedis, args: CustomPieceArgs) -> str:
+    """Peça desenhada pela IA: confere o código, passa os textos no Guardião e já gera."""
+    parts = [CustomPart(name=p.nome, scad=p.scad) for p in args.partes]
+    try:
+        texts = validate(parts)
+    except CustomScadError as exc:
+        return f"erro: {exc}"
+    if texts:
+        verdict = await guardian.check(
+            run.session,
+            GuardianCheckIn(
+                niche="brindes", title=args.nome, origin="parametrico", customer_text=texts
+            ),
+        )
+        if not verdict.approved:
+            return "erro: texto recusado pelo Guardião: " + "; ".join(
+                v.message for v in verdict.violations
+            )
+    job = await queue.enqueue_job(
+        "generate_custom_scad", [{"name": p.name, "scad": p.scad} for p in parts]
+    )
+    if job is None:
+        return "erro: job duplicado"
+    await audit.record(
+        run.session,
+        actor="admin",
+        action="assistente_criou_peca",
+        entity_type="peca_sob_medida",
+        entity_id=job.job_id,
+        reason=args.nome[:200],
+        payload={"partes": [p.name for p in parts]},
+    )
+    await run.session.commit()
+    run.jobs.append(JobCard(job=f"fila:{job.job_id}", title=args.nome))
+    code = "\n".join(f"// parte {p.name}\n{p.scad}" for p in parts)
+    run.created.append(f"[peça criada: {args.nome}]\n{code}")
+    return "peça enviada para gerar; o dono vê a prévia 3D abaixo da sua mensagem"
+
+
 def _piece_summary(args: PieceArgs, hit: ImageHit | None) -> str:
     what = {
         "litofania": "litofania",
@@ -200,11 +324,23 @@ async def _call(run: _Run, redis: ArqRedis, call: admin_agent.ToolCall) -> str:
             out = await _search_products(run, SearchProductsArgs.model_validate(raw))
         elif call.ferramenta == "resumo_pedidos":
             out = await _orders(run, OrdersArgs.model_validate(raw))
+        elif call.ferramenta == "listar_parametricos":
+            out = _list_parametric()
+        elif call.ferramenta == "gerar_parametrico":
+            proposed = await _propose_parametric(run, redis, ParametricArgs.model_validate(raw))
+            if proposed.startswith("erro"):
+                return f"[{call.ferramenta}] {proposed}"
+            out = proposed
+        elif call.ferramenta == "criar_peca":
+            created = await _create_piece(run, redis, CustomPieceArgs.model_validate(raw))
+            if created.startswith("erro"):
+                return f"[{call.ferramenta}] {created}"
+            out = created
         elif call.ferramenta == "gerar_peca_da_imagem":
             piece = PieceArgs.model_validate(raw)
             hit = next((h for h in run.shown if h.id == piece.imagem_id), None)
             out = await _propose(run, call.ferramenta, piece, _piece_summary(piece, hit), redis)
-        else:
+        elif call.ferramenta == "alterar_produto":
             change = ProductChangeArgs.model_validate(raw)
             product = await run.session.get(Product, change.produto_id)
             if product is None:
@@ -222,19 +358,25 @@ async def _call(run: _Run, redis: ArqRedis, call: admin_agent.ToolCall) -> str:
                 return f"[{call.ferramenta}] erro: nada para mudar"
             summary = f'Produto #{product.id} "{product.title}": ' + "; ".join(fields)
             out = await _propose(run, call.ferramenta, change, summary, redis)
+        else:
+            return f"[{call.ferramenta}] erro: ferramenta desconhecida"
     except (ValueError, ValidationError) as exc:
         return f"[{call.ferramenta}] erro nos argumentos: {str(exc)[:300]}"
     except ImageSearchError as exc:
         return f"[{call.ferramenta}] erro: {exc}"
-    return f"[{call.ferramenta}] {json.dumps(out, ensure_ascii=False)[:4000]}"
+    return f"[{call.ferramenta}] {json.dumps(out, ensure_ascii=False)[:9000]}"
 
 
-def _memo(reply: str, shown: list[ImageHit]) -> str:
-    """Resposta + imagens mostradas: o painel devolve isto na conversa ("faz da 2")."""
-    if not shown:
-        return reply
-    listed = "; ".join(f"#{i + 1} id={h.id} {h.title[:40]}" for i, h in enumerate(shown))
-    return f"{reply}\n[imagens mostradas: {listed}]"[:4000]
+def _memo(reply: str, shown: list[ImageHit], created: list[str]) -> str:
+    """Resposta + imagens mostradas + código das peças: o painel devolve isto na conversa
+    ("faz da 2", "aumenta o texto")."""
+    memo = reply
+    if shown:
+        listed = "; ".join(f"#{i + 1} id={h.id} {h.title[:40]}" for i, h in enumerate(shown))
+        memo += f"\n[imagens mostradas: {listed}]"
+    for code in created:
+        memo += f"\n{code}"
+    return memo[:16000]
 
 
 async def chat(
@@ -251,25 +393,33 @@ async def chat(
     run = _Run(session=session, images=images)
     results: list[str] = []
     reply = ""
+    corrected = False
     for _ in range(MAX_STEPS):
         system, prompt = admin_agent.build(
-            loja=brand.name if brand else "a loja", turns=turns[-12:], results=results
+            loja=brand.name if brand else "a loja",
+            turns=turns[-12:],
+            results=results,
+            fonts=sorted(FONT_NAMES),
         )
         step = await provider.complete_json(
             system=system,
             prompt=prompt,
             schema=admin_agent.AgentStep,
             model=model,
-            max_tokens=2000,
+            max_tokens=8000,  # o passo pode trazer o código OpenSCAD de uma peça
         )
         reply = step.mensagem.strip()
         if not step.chamadas:
-            break
+            if run.proposals or run.jobs or corrected or not _PROMISES_BUTTON.search(reply):
+                break
+            corrected = True
+            results.append(_NO_BUTTON)
+            continue
         new = [await _call(run, redis, call) for call in step.chamadas]
         results.extend(new)
         only_proposals = all(c.ferramenta not in admin_agent.READ_TOOLS for c in step.chamadas)
         if only_proposals and not any("] erro" in r for r in new):
-            break  # só propostas: a mensagem já fala do botão de confirmar
+            break  # só propostas/peças: a IA não vê o resultado, o dono vê
     cards = [
         ImageCard(
             number=i + 1,
@@ -284,7 +434,11 @@ async def chat(
     ]
     reply = reply or "Pronto."
     return AgentReply(
-        reply=reply, memo=_memo(reply, run.shown), images=cards, proposals=run.proposals
+        reply=reply,
+        memo=_memo(reply, run.shown, run.created),
+        images=cards,
+        proposals=run.proposals,
+        jobs=run.jobs,
     )
 
 
@@ -306,7 +460,38 @@ async def confirm(
         return await _make_piece(session, storage, redis, images, PieceArgs.model_validate(args))
     if tool == "alterar_produto":
         return await _change_product(session, ProductChangeArgs.model_validate(args))
+    if tool == "gerar_parametrico":
+        return await _make_parametric(session, redis, ParametricArgs.model_validate(args))
     raise AgentError(f"ferramenta desconhecida: {tool}")
+
+
+async def _make_parametric(
+    session: AsyncSession, queue: ArqRedis, args: ParametricArgs
+) -> ConfirmResult:
+    model = MODELS.get(args.modelo)
+    if model is None:
+        raise AgentError(f"modelo '{args.modelo}' não existe")
+    try:
+        parsed = model.parse(args.parametros)
+    except ValidationError as exc:
+        raise AgentError(f"parâmetros inválidos: {exc.errors(include_url=False)[:3]}") from exc
+    refused = await _check_texts(session, args.modelo, parsed)
+    if refused:
+        raise AgentError(f"texto recusado pelo Guardião: {refused}")
+    job = await queue.enqueue_job("generate_parametric", args.modelo, parsed.model_dump())
+    if job is None:
+        raise AgentError("job duplicado")
+    await audit.record(
+        session,
+        actor="admin",
+        action="assistente_gerou_parametrico",
+        entity_type="parametrico",
+        entity_id=job.job_id,
+        reason="confirmado pelo dono no assistente do painel",
+        payload={"modelo": args.modelo, "parametros": parsed.model_dump(mode="json")},
+    )
+    await session.commit()
+    return ConfirmResult(message=f"Gerando {model.title}", job=f"fila:{job.job_id}")
 
 
 async def _make_piece(
