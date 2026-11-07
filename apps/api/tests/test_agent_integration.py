@@ -249,7 +249,10 @@ def test_sem_modelo_o_assistente_desenha_a_peca(client: TestClient, chat: FakeCh
 
 
 def test_codigo_que_le_arquivo_e_recusado(client: TestClient, chat: FakeChat) -> None:
-    bad = {"nome": "x", "partes": [{"nome": "base", "scad": 'import("/srv/print3d/.env");'}]}
+    bad = {
+        "nome": "Peça ruim",
+        "partes": [{"nome": "base", "scad": 'import("/srv/print3d/.env");'}],
+    }
     chat.steps = [
         _step("Prévia abaixo.", ("criar_peca", bad)),
         _step("Não consegui desenhar desse jeito."),
