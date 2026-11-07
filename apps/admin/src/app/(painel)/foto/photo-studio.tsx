@@ -102,7 +102,7 @@ export function PhotoStudio() {
       const data = (await res.json()) as { status: string; result?: Report & AiResult; error?: string; progress?: number };
       if (stop) return;
       setStatus(data.status);
-      setProgress(data.progress ?? 0);
+      setProgress((p) => data.progress || p);
       if (data.status === "concluido" && data.result) setReport(ai ? fromAi(data.result) : data.result);
       else if (data.status === "falhou" || !res.ok) setError(data.error ?? "Falha ao gerar.");
       else setTimeout(tick, ai ? 5000 : 1500);

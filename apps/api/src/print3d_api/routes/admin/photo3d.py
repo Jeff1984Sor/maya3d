@@ -3,7 +3,10 @@ API (o worker não vê a chave). O painel consulta o andamento; quando a IA term
 o modelo, conserta, põe no tamanho pedido e grava STL + 3MF. O dono declarou ter direito sobre
 a foto (auditoria); a foto e o resultado seguem o prazo LGPD das fotos."""
 
+import asyncio
 import json
+import logging
+import time
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -20,6 +23,7 @@ from print3d_api.services import integrations, photos
 from print3d_core.storage import LocalStorage
 from print3d_mesh.image3d import Image3DError, ImageTo3D, prepare_for_print
 
+log = logging.getLogger("print3d.photo3d")
 router = APIRouter(prefix="/photo3d", tags=["admin: foto vira objeto 3D"])
 IMAGE_TYPES = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "webp": "image/webp"}
 PREFIX = photos.PREFIX  # mesma pasta das fotos: a limpeza LGPD já cobre
@@ -100,6 +104,25 @@ def _finish(folder: Path, model: bytes, size_mm: float) -> dict[str, Any]:
     return {**printable.info, "model": "modelo.stl", "project": "modelo.3mf"}
 
 
+FINISH_STALE_S = 600  # finalização parada há mais que isso (API reiniciou): tenta de novo
+_running: set[asyncio.Task[None]] = set()
+
+
+async def _finalize(
+    folder: Path, saved: dict[str, Any], provider: ImageTo3D, url: str, ref: str, credits: Any
+) -> None:
+    """Baixa, conserta e grava o modelo fora da consulta do painel (pode levar dezenas de s)."""
+    try:
+        model = await provider.download(url)
+        result = await run_in_threadpool(_finish, folder, model, float(saved["size_mm"]))
+        result |= {"prefix": f"{PREFIX}/ia-{ref}", "credits": credits}
+        saved |= {"status": "concluido", "result": result}
+    except Exception as exc:  # malha inválida, link expirado, disco: avisa no painel
+        log.warning("foto 3D não finalizou", extra={"ref": ref, "erro": str(exc)[:300]})
+        saved |= {"status": "falhou", "error": f"não deu para preparar o modelo: {exc}"[:500]}
+    _save(folder, saved)
+
+
 @router.get("/{ref}", response_model=Photo3DState)
 async def state(ref: str, storage: Storage, provider: Provider) -> Photo3DState:
     if not ref.isalnum() or len(ref) != 32:
@@ -111,27 +134,25 @@ async def state(ref: str, storage: Storage, provider: Provider) -> Photo3DState:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "tarefa não existe (ou já expirou)") from exc
     if saved["status"] in ("concluido", "falhou"):
         return Photo3DState(id=ref, **{k: saved.get(k) for k in ("status", "error", "result")})
+    if saved["status"] == "finalizando" and time.time() - saved.get("since", 0) < FINISH_STALE_S:
+        return Photo3DState(id=ref, status="processando", progress=99)
     try:
         task = await provider.task(saved["task_id"])
-        if task.status == "falhou":
-            saved |= {"status": "falhou", "error": task.error or "a IA não conseguiu gerar"}
-        elif task.status == "concluido" and task.model_url:
-            model = await provider.download(task.model_url)
-            result = await run_in_threadpool(_finish, folder, model, float(saved["size_mm"]))
-            result |= {"prefix": f"{PREFIX}/ia-{ref}", "credits": task.credits}
-            saved |= {"status": "concluido", "result": result}
-        else:
-            return Photo3DState(id=ref, status=task.status, progress=task.progress)
     except Image3DError as exc:
         if exc.status_code in (401, 403):  # chave/plano: não adianta seguir consultando
             saved |= {"status": "falhou", "error": str(exc)}
-        else:
-            raise HTTPException(_error_status(exc), str(exc)) from exc
+            _save(folder, saved)
+            return Photo3DState(id=ref, status="falhou", error=str(exc))
+        raise HTTPException(_error_status(exc), str(exc)) from exc
+    if task.status == "falhou":
+        saved |= {"status": "falhou", "error": task.error or "a IA não conseguiu gerar"}
+        _save(folder, saved)
+        return Photo3DState(id=ref, status="falhou", error=saved["error"])
+    if task.status != "concluido" or not task.model_url:
+        return Photo3DState(id=ref, status=task.status, progress=task.progress)
+    saved |= {"status": "finalizando", "since": time.time()}
     _save(folder, saved)
-    return Photo3DState(
-        id=ref,
-        status=saved["status"],
-        progress=100,
-        error=saved.get("error"),
-        result=saved.get("result"),
-    )
+    job = asyncio.create_task(_finalize(folder, saved, provider, task.model_url, ref, task.credits))
+    _running.add(job)
+    job.add_done_callback(_running.discard)
+    return Photo3DState(id=ref, status="processando", progress=99)

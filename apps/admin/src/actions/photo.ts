@@ -19,7 +19,8 @@ export async function startPhoto(form: FormData): Promise<{ jobId?: string; erro
     const size = String(form.get("size_mm") ?? "").replace(",", ".").trim();
     if (size) body.append("size_mm", size);
     try {
-      const { id } = await adminApi<{ id: string }>("/photo3d", { method: "POST", body });
+      // a foto vai inteira para a IA: mais que os 15 s padrão
+      const { id } = await adminApi<{ id: string }>("/photo3d", { method: "POST", body, signal: AbortSignal.timeout(55_000) });
       return { jobId: `ia:${id}` };
     } catch (error) {
       return { error: error instanceof AdminApiError ? error.message : "Falha ao enviar a foto." };

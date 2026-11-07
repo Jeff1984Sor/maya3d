@@ -3,8 +3,10 @@ foto vai para a IA, o andamento aparece e o modelo volta no tamanho pedido em ST
 
 import io
 import os
+import time
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 import pytest
 import trimesh
@@ -74,6 +76,16 @@ def app_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Test
     get_settings.cache_clear()
 
 
+def _wait(c: TestClient, ref: str) -> dict[str, Any]:
+    """A finalização roda em segundo plano: consulta até terminar."""
+    for _ in range(50):
+        state = dict(c.get(f"/v1/admin/photo3d/{ref}", headers=H).json())
+        if state["status"] in ("concluido", "falhou"):
+            return state
+        time.sleep(0.1)
+    raise AssertionError("não terminou")
+
+
 def test_sem_chave_pede_para_configurar(app_client: TestClient) -> None:
     res = app_client.post("/v1/admin/photo3d", files=PHOTO, headers=H)
     assert res.status_code == 503
@@ -98,7 +110,9 @@ def test_foto_vira_modelo_no_tamanho_pedido(app_client: TestClient, tmp_path: Pa
     running = app_client.get(f"/v1/admin/photo3d/{ref}", headers=H).json()
     assert (running["status"], running["progress"]) == ("processando", 55)
 
-    done = app_client.get(f"/v1/admin/photo3d/{ref}", headers=H).json()
+    finishing = app_client.get(f"/v1/admin/photo3d/{ref}", headers=H).json()
+    assert (finishing["status"], finishing["progress"]) == ("processando", 99)  # não trava
+    done = _wait(app_client, ref)
     assert done["status"] == "concluido"
     result = done["result"]
     assert result["bbox_mm"] == [50.0, 100.0, 200.0]
@@ -120,4 +134,4 @@ def test_sem_credito_avisa_sem_perder_a_tarefa(app_client: TestClient) -> None:
     ref = app_client.post("/v1/admin/photo3d", files=PHOTO, headers=H).json()["id"]
     res = app_client.get(f"/v1/admin/photo3d/{ref}", headers=H)
     assert res.status_code == 402
-    assert app_client.get(f"/v1/admin/photo3d/{ref}", headers=H).json()["status"] == "concluido"
+    assert _wait(app_client, ref)["status"] == "concluido"
