@@ -6,6 +6,8 @@ Pula produtos que já têm anúncio. Uso:
 
     python tools/robo_ml_publicar.py <categoria> --api https://api.<dominio> [--dry-run]
 
+Trocou de conta no ML? --conta-nova-desde N ignora os anúncios de id <= N (os da conta antiga).
+
 Token do robô em ~/Downloads/robo-token.txt (painel → Integrações → Robô).
 """
 
@@ -56,6 +58,12 @@ def main() -> int:
         "--categoria-reserva",
         help="categoria do ML (ex.: MLB1234) quando a sugerida pede dados que não temos",
     )
+    ap.add_argument(
+        "--conta-nova-desde",
+        type=int,
+        default=0,
+        help="anúncios com id até este número são da conta antiga: não contam como publicados",
+    )
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
@@ -77,7 +85,8 @@ def main() -> int:
     for p in products:
         try:
             listings = c.get("/mercadolivre/listings", params={"product_id": p["id"]}).json()
-            if any(x["status"] == "publicado" for x in listings):  # tentativa com erro: refaz
+            current = [x for x in listings if x["id"] > args.conta_nova_desde]
+            if any(x["status"] == "publicado" for x in current):  # tentativa com erro: refaz
                 print(f"= {p['title']}: já anunciado")
                 continue
             variants = c.get(f"/products/{p['id']}").json()["variants"]
