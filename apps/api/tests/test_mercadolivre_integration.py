@@ -82,7 +82,7 @@ class FakeML:
         self, token: str, item_id: str, changes: dict[str, Any]
     ) -> dict[str, Any]:
         self.updates.append((item_id, changes))
-        return {"id": item_id}
+        return {"id": item_id, **changes}  # o ML devolve o item já alterado
 
     async def get(self, token: str, resource: str) -> dict[str, Any]:
         return self.resources[resource]
@@ -247,9 +247,23 @@ def test_conecta_anuncia_importa_pedido_e_responde(client: TestClient, fake: Fak
     assert done["status"] == "respondida"
     assert fake.answers == [(88, "Temos sim!")]
 
+    free = client.put(
+        f"/v1/admin/mercadolivre/listings/{listing['id']}/free-shipping",
+        json={"enabled": True},
+        headers=H,
+    ).json()
+    assert free == {"listing_id": listing["id"], "free_shipping": True}
+    assert fake.updates.pop() == ("MLB999", {"shipping": {"mode": "me2", "free_shipping": True}})
+
     closed = client.delete(f"/v1/admin/mercadolivre/listings/{listing['id']}", headers=H).json()
     assert closed["status"] == "encerrado"
     assert fake.updates == [("MLB999", {"status": "closed"}), ("MLB999", {"deleted": "true"})]
+    gone = client.put(
+        f"/v1/admin/mercadolivre/listings/{listing['id']}/free-shipping",
+        json={"enabled": True},
+        headers=H,
+    )
+    assert gone.status_code == 409  # encerrado não recebe frete grátis
 
 
 def test_sem_https_nao_conecta(client: TestClient) -> None:

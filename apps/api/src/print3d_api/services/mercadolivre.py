@@ -35,6 +35,7 @@ from print3d_channels.mercadolivre import (
     MercadoLivreError,
     Tokens,
     authorization_url,
+    free_shipping_change,
     item_payload,
     pkce_pair,
 )
@@ -61,8 +62,14 @@ async def _settings(session: AsyncSession) -> dict[str, str | None]:
         "PUBLIC_API_URL",
         "PUBLIC_STORE_URL",
         "ML_MANUFACTURING_DAYS",
+        "ML_FREE_SHIPPING",
     )
     return {k: values.get(k) or integrations.env_value(k) for k in keys}
+
+
+async def free_shipping(session: AsyncSession) -> bool:
+    """Frete grátis nos anúncios novos (Integrações → Mercado Livre)."""
+    return ((await _settings(session))["ML_FREE_SHIPPING"] or "").strip().lower() == "sim"
 
 
 async def manufacturing_days(session: AsyncSession) -> int | None:
@@ -288,6 +295,7 @@ async def publish(
                 attributes=[{"id": k, "value_name": v} for k, v in attrs.items() if v],
                 user_products=await ml.is_user_products_seller(token),
                 manufacturing_days=await manufacturing_days(session),
+                free_shipping=await free_shipping(session),
             ),
         )
         listing.external_id = str(created["id"])
@@ -418,6 +426,33 @@ async def answer(session: AsyncSession, question_id: int, text: str) -> Marketpl
     )
     await session.commit()
     return question
+
+
+async def set_free_shipping(session: AsyncSession, listing_id: int, enabled: bool) -> bool:
+    """Liga/desliga o frete grátis de um anúncio publicado. Devolve o que o ML gravou."""
+    listing = await session.get(ChannelListing, listing_id)
+    if listing is None or listing.channel != CHANNEL:
+        raise MLError("anúncio não existe", status=404)
+    if listing.status != "publicado" or not listing.external_id:
+        raise MLError("o anúncio não está publicado", status=409)
+    token = await access_token(session)
+    ml = await client(session)
+    try:
+        item = await ml.update_item(token, listing.external_id, free_shipping_change(enabled))
+    except MercadoLivreError as exc:
+        raise MLError(f"o Mercado Livre recusou o frete grátis: {exc}") from exc
+    saved = bool((item.get("shipping") or {}).get("free_shipping"))
+    await audit.record(
+        session,
+        actor="admin",
+        action="ml_frete_gratis",
+        entity_type="product",
+        entity_id=listing.product_id,
+        decision="sim" if saved else "nao",
+        payload={"anuncio": listing.external_id, "pedido": enabled},
+    )
+    await session.commit()
+    return saved
 
 
 async def close_listing(session: AsyncSession, listing_id: int) -> ChannelListing:

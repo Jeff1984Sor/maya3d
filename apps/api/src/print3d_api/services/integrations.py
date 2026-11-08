@@ -97,6 +97,13 @@ FIELDS: tuple[Field, ...] = (
         hint="sob encomenda: o ML mostra 'disponível em X dias'; vazio = pronta entrega",
     ),
     Field(
+        "ML_FREE_SHIPPING",
+        "mercadolivre",
+        "Frete grátis nos anúncios novos",
+        choices=("sim", "nao"),
+        hint="sim = o ML mostra 'Frete grátis' e cobra o frete de você em cada venda",
+    ),
+    Field(
         "MP_ACCESS_TOKEN",
         "mercadopago",
         "Access Token",

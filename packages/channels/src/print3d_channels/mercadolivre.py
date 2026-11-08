@@ -235,6 +235,11 @@ class MercadoLivre:
         )
 
 
+def free_shipping_change(enabled: bool) -> dict[str, Any]:
+    """Corpo de PUT /items/{id} que liga/desliga o frete grátis (Mercado Envios)."""
+    return {"shipping": {"mode": "me2", "free_shipping": enabled}}
+
+
 def item_payload(
     *,
     title: str,
@@ -246,8 +251,11 @@ def item_payload(
     attributes: list[dict[str, Any]],
     user_products: bool = False,
     manufacturing_days: int | None = None,
+    free_shipping: bool = False,
 ) -> dict[str, Any]:
     """Corpo de POST /items. Fotos precisam ser URLs públicas (HTTPS, com domínio).
+
+    ``free_shipping``: Mercado Envios com frete grátis (o vendedor paga o frete).
 
     Conta no modelo User Products (tag ``user_product_seller``): manda ``family_name`` e não
     manda ``title`` — o ML gera o título a partir dele e dos atributos.
@@ -258,10 +266,12 @@ def item_payload(
         if manufacturing_days
         else {}
     )
+    shipping = {"shipping": free_shipping_change(True)["shipping"]} if free_shipping else {}
     return {
         "site_id": SITE,
         **name,
         **terms,
+        **shipping,
         "category_id": category_id,
         "price": float(price),
         "currency_id": "BRL",

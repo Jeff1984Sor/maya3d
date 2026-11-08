@@ -147,6 +147,27 @@ async def answer(question_id: int, payload: AnswerIn, session: Session) -> Marke
         raise _http(exc) from exc
 
 
+class FreeShippingIn(BaseModel):
+    enabled: bool = True
+
+
+class FreeShippingOut(BaseModel):
+    listing_id: int
+    free_shipping: bool  # o que o Mercado Livre gravou
+
+
+@router.put("/listings/{listing_id}/free-shipping", response_model=FreeShippingOut)
+async def free_shipping(
+    listing_id: int, payload: FreeShippingIn, session: Session
+) -> FreeShippingOut:
+    """Liga/desliga o frete grátis de um anúncio (o vendedor paga o frete)."""
+    try:
+        saved = await ml.set_free_shipping(session, listing_id, payload.enabled)
+    except ERRORS as exc:
+        raise _http(exc) from exc
+    return FreeShippingOut(listing_id=listing_id, free_shipping=saved)
+
+
 @router.delete("/listings/{listing_id}", response_model=ListingOut)
 async def close(listing_id: int, session: Session) -> ChannelListing:
     """Encerra e apaga o anúncio no Mercado Livre (ação sem volta)."""

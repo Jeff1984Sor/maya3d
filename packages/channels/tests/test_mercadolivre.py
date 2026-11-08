@@ -12,6 +12,7 @@ from print3d_channels.mercadolivre import (
     MercadoLivre,
     MercadoLivreError,
     authorization_url,
+    free_shipping_change,
     item_payload,
     pkce_pair,
 )
@@ -141,3 +142,19 @@ def test_item_payload_user_products_usa_family_name_sem_title() -> None:
     assert body["sale_terms"] == [{"id": "MANUFACTURING_TIME", "value_name": "5 dias"}]
     assert body["family_name"] == "Crucifixo de parede em impressão 3D"
     assert "title" not in body
+
+
+def test_frete_gratis_no_anuncio_e_na_alteracao() -> None:
+    base = {
+        "title": "Terço",
+        "category_id": "MLB1",
+        "price": Decimal("20.90"),
+        "quantity": 10,
+        "listing_type": "gold_special",
+        "pictures": ["https://loja.test/a.jpg"],
+        "attributes": [],
+    }
+    assert "shipping" not in item_payload(**base)
+    shipping = item_payload(**base, free_shipping=True)["shipping"]
+    assert shipping == {"mode": "me2", "free_shipping": True}
+    assert free_shipping_change(False) == {"shipping": {"mode": "me2", "free_shipping": False}}
