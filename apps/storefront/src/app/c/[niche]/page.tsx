@@ -22,7 +22,7 @@ export default async function NichePage({ params }: { params: Params }) {
   const products = (await storeApiOrNull<ProductCard[]>(`/products?niche=${encodeURIComponent(slug)}&limit=60`, 60)) ?? [];
   return (
     <Container className="py-10">
-      <h1 className="mb-6 font-heading text-3xl font-bold">{niche.name}</h1>
+      <h1 className="mb-8 text-4xl sm:text-5xl">{niche.name}</h1>
       <ProductGrid products={products} empty="Nenhum produto disponível neste tema ainda." />
     </Container>
   );

@@ -10,6 +10,7 @@ export type Brand = {
   name: string;
   tagline: string | null;
   colors: { light: Record<string, string>; dark: Record<string, string> };
+  fonts: Record<string, string>;
   contact_email: string | null;
   contact_whatsapp: string | null;
   social: Record<string, string>;
@@ -72,6 +73,7 @@ export async function saveBrand(form: FormData): Promise<void> {
       cnpj: t(form, "cnpj") || null,
       legal_name: t(form, "legal_name") || null,
       voice: t(form, "voice") || null,
+      fonts: { heading: t(form, "font_heading"), body: t(form, "font_body"), logo_texto: t(form, "logo_texto") },
     });
   } catch (e) {
     go("/marca", "erro", msg(e, "Falha ao salvar."));

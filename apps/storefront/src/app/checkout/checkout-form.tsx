@@ -95,7 +95,7 @@ export function CheckoutForm() {
       </section>
 
       {state.error && <p className="rounded-xl bg-primary/10 p-3 text-sm text-primary">{state.error}</p>}
-      <button disabled={pending || !shipping.quote} className="w-full rounded-xl bg-primary px-6 py-4 text-lg font-semibold text-white disabled:opacity-50">
+      <button disabled={pending || !shipping.quote} className="btn w-full text-lg">
         {pending ? "Enviando pedido…" : "Fazer pedido e pagar com Pix"}
       </button>
       {!shipping.quote && (

@@ -124,7 +124,7 @@ export function Assistant({ brand }: { brand: string }) {
       )}
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 rounded-full bg-primary px-5 py-3 font-medium text-white shadow-lg transition hover:opacity-90"
+        className="flex min-h-12 items-center gap-2 rounded-full bg-primary px-5 py-3 font-extrabold text-white shadow-card transition hover:brightness-90"
         aria-expanded={open}
       >
         {open ? "Fechar" : "💬 Ajuda para escolher"}

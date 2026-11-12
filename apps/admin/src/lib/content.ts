@@ -1,5 +1,5 @@
 /** Campos da marca editáveis no painel (mesmos tokens validados pela API e pela loja). */
-export const TOKENS = ["bg", "surface", "ink", "muted", "primary", "secondary", "border"] as const;
+export const TOKENS = ["bg", "surface", "ink", "muted", "primary", "secondary", "border", "accent", "soft", "deep"] as const;
 export const TOKEN_LABELS: Record<(typeof TOKENS)[number], string> = {
   bg: "Fundo",
   surface: "Cartões",
@@ -8,6 +8,9 @@ export const TOKEN_LABELS: Record<(typeof TOKENS)[number], string> = {
   primary: "Principal (botões, preço)",
   secondary: "Destaque (links)",
   border: "Bordas",
+  accent: "Detalhe (ícone, letra do logo)",
+  soft: "Faixa de seção (fundo suave)",
+  deep: "Faixa escura (rodapé)",
 };
 export const SOCIALS = ["instagram", "facebook", "tiktok", "youtube", "pinterest"] as const;
 export const SECTION_KINDS = [

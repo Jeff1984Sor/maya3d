@@ -11,11 +11,56 @@
   --color-primary: var(--primary);
   --color-secondary: var(--secondary);
   --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-soft: var(--soft);
+  --color-deep: var(--deep);
   --font-heading: var(--f-heading), ui-sans-serif, system-ui, sans-serif;
   --font-sans: var(--f-body), ui-sans-serif, system-ui, sans-serif;
+  --shadow-card: 0 8px 24px color-mix(in srgb, var(--ink) 8%, transparent);
 }
 
+/* ---------- Base (as cores e fontes vêm da marca; aqui só forma e ritmo) ---------- */
 body {
   background: var(--bg);
   color: var(--ink);
+  font-size: 1.0625rem;
+  line-height: 1.6;
+}
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+a {
+  text-underline-offset: 3px;
+}
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* ---------- Peças reaproveitadas pela vitrine ---------- */
+@layer components {
+  /* botão principal: pílula, texto forte, alvo de toque de 48 px */
+  .btn {
+    @apply inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-full border-2 border-transparent bg-primary px-7 py-3 font-extrabold text-white transition hover:brightness-90 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-outline {
+    @apply inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-full border-2 border-ink bg-transparent px-7 py-3 font-extrabold text-ink transition hover:bg-ink hover:text-bg active:translate-y-px disabled:opacity-50;
+  }
+  /* chip de tema/categoria */
+  .chip {
+    @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border-2 border-border bg-surface px-4 py-1.5 font-bold text-ink transition hover:border-accent hover:text-primary;
+  }
+  /* selo (frete grátis, sob encomenda, personalizável) */
+  .seal {
+    @apply inline-flex w-fit items-center gap-1.5 rounded-full bg-secondary/20 px-3.5 py-1 text-xs font-extrabold text-ink;
+  }
+  .card {
+    @apply overflow-hidden rounded-3xl bg-surface shadow-card;
+  }
 }

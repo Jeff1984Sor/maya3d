@@ -38,12 +38,12 @@ export default async function ProductPage({ params }: { params: Params }) {
               <Link href={`/c/${product.niche}`} className="text-sm text-muted hover:text-ink">
                 ← {product.category.replace(/-/g, " ")}
               </Link>
-              <h1 className="mt-2 font-heading text-3xl font-bold tracking-tight">{product.title}</h1>
+              <h1 className="mt-2 text-4xl tracking-tight">{product.title}</h1>
             </div>
             {product.parametric_model && (
               <Link
                 href={`/personalizar/${product.slug}`}
-                className="flex items-center justify-between rounded-2xl border border-secondary bg-secondary/10 p-4 font-medium text-secondary"
+                className="flex items-center justify-between rounded-3xl border-2 border-secondary bg-secondary/10 p-4 font-bold text-secondary"
               >
                 Personalize e veja em 3D antes de comprar <span>→</span>
               </Link>
@@ -54,7 +54,7 @@ export default async function ProductPage({ params }: { params: Params }) {
           <>
             {product.description && <p className="whitespace-pre-line leading-relaxed text-muted">{product.description}</p>}
             {(product.disclaimers.length > 0 || product.age_rating || product.attribution) && (
-              <ul className="space-y-1 rounded-2xl border border-border bg-surface p-4 text-sm text-muted">
+              <ul className="card space-y-1 p-5 text-sm text-muted">
                 {product.age_rating && <li>Classificação: {product.age_rating} · item decorativo/colecionável</li>}
                 {product.disclaimers.map((d) => (
                   <li key={d}>• {d}</li>

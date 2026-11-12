@@ -42,6 +42,19 @@ export default async function MarcaPage({ searchParams }: { searchParams: Promis
               <Label label="CNPJ">
                 <input name="cnpj" defaultValue={brand.cnpj ?? ""} className={inputClass} />
               </Label>
+              <Label label="Fonte dos títulos" hint="nome exato do Google Fonts, ex.: Fredoka; vazio = padrão">
+                <input name="font_heading" defaultValue={brand.fonts?.heading ?? ""} className={inputClass} />
+              </Label>
+              <Label label="Fonte dos textos" hint="ex.: Nunito; vazio = padrão">
+                <input name="font_body" defaultValue={brand.fonts?.body ?? ""} className={inputClass} />
+              </Label>
+              <Label label="Nome ao lado do logo" hint="para logo só com ícone">
+                <select name="logo_texto" defaultValue={brand.fonts?.logo_texto ?? ""} className={inputClass}>
+                  <option value="">Só o logo</option>
+                  <option value="nome">Logo + nome</option>
+                  <option value="nome-destaque">Logo + nome em minúsculas, última letra na cor de detalhe</option>
+                </select>
+              </Label>
             </div>
 
             <div>

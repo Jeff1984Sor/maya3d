@@ -63,6 +63,7 @@ _BRAND_FIELDS = (
     "cnpj",
     "legal_name",
     "voice",
+    "fonts",
 )
 
 
@@ -123,6 +124,33 @@ def test_marca_editavel(client: TestClient) -> None:
 
     bad = {**payload, "colors": {"light": {"primary": "red; } body {display:none"}, "dark": {}}}
     assert client.put("/v1/admin/brand", json=bad, headers=H).status_code == 422
+
+    # cores novas (detalhe, faixa, escura) e fontes da marca
+    styled = {
+        **payload,
+        "colors": {
+            "light": {"accent": "#E2604C", "soft": "#F9D9D1", "deep": "#3B1F2B"},
+            "dark": {},
+        },
+        "fonts": {"heading": "Fredoka", "body": "Nunito", "logo_texto": "nome-destaque"},
+    }
+    res = client.put("/v1/admin/brand", json=styled, headers=H)
+    assert res.status_code == 200, res.text
+    public = client.get("/v1/brand").json()
+    assert public["colors"]["light"]["deep"] == "#3B1F2B"
+    assert public["fonts"] == {
+        "heading": "Fredoka",
+        "body": "Nunito",
+        "logo_texto": "nome-destaque",
+    }
+    no_fonts = {k: v for k, v in styled.items() if k != "fonts"}
+    client.put("/v1/admin/brand", json=no_fonts, headers=H)  # sem "fonts": não apaga
+    assert client.get("/v1/brand").json()["fonts"]["heading"] == "Fredoka"
+    for fonts in ({"heading": 'x";}'}, {"logo_texto": "outro"}, {"cor": "Nunito"}):
+        assert (
+            client.put("/v1/admin/brand", json={**styled, "fonts": fonts}, headers=H).status_code
+            == 422
+        )
 
     logo = client.post("/v1/admin/brand/logo/light", files={"file": ("l.png", _png())}, headers=H)
     url = logo.json()["logo_light_url"]

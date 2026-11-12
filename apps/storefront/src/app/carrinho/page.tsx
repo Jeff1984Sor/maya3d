@@ -16,7 +16,7 @@ export default async function CarrinhoPage() {
     return (
       <Container className="py-20 text-center">
         <h1 className="font-heading text-3xl font-bold">Seu carrinho está vazio</h1>
-        <Link href="/busca" className="mt-6 inline-block rounded-xl bg-primary px-6 py-3 font-medium text-white">
+        <Link href="/busca" className="btn mt-6">
           Ver produtos
         </Link>
       </Container>
@@ -80,7 +80,7 @@ export default async function CarrinhoPage() {
           <Link
             href={cart?.purchasable ? "/checkout" : "#"}
             aria-disabled={!cart?.purchasable}
-            className={`mt-5 block rounded-xl px-6 py-3 text-center font-semibold text-white ${cart?.purchasable ? "bg-primary hover:opacity-90" : "pointer-events-none bg-muted"}`}
+            className={`btn mt-5 w-full ${cart?.purchasable ? "" : "pointer-events-none !bg-muted"}`}
           >
             Finalizar compra
           </Link>

@@ -7,6 +7,9 @@
   --primary: #ff6b2c;
   --secondary: #14b8a6;
   --border: #e7e2da;
+  --accent: #ff6b2c; /* detalhe da marca (ícone, letra destacada) */
+  --soft: #efe9e1; /* faixa de seção */
+  --deep: #1e1e24; /* rodapé e faixas escuras (texto em cima usa --bg) */
 }
 
 @media (prefers-color-scheme: dark) {
@@ -16,5 +19,7 @@
     --ink: #f7f4ef;
     --muted: #9ca3af;
     --border: #2e2e36;
+    --soft: #24242c;
+    --deep: #0c0c0f;
   }
 }

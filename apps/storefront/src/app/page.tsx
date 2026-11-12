@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Container, ProductGrid } from "@/components/shop";
+import { Container, ProductGrid, whatsappLink } from "@/components/shop";
 import { api } from "@/lib/api";
 import { NICHE_EMOJI } from "@/lib/format";
 import { storeApiOrNull, type Home as HomeData, type Niche } from "@/lib/store";
@@ -19,26 +19,35 @@ export default async function Home() {
 
   return (
     <>
-      <section className="border-b border-border bg-surface">
-        <Container className="grid items-center gap-8 py-14 md:grid-cols-2 md:py-20">
-          <div className="space-y-5">
-            <h1 className="font-heading text-4xl font-bold leading-tight tracking-tight sm:text-5xl">
+      <section className="bg-soft">
+        <Container className="grid items-center gap-10 py-12 md:grid-cols-2 md:py-16">
+          <div className="space-y-6">
+            <div className="flex flex-wrap gap-2">
+              <span className="seal">feito sob encomenda</span>
+              <span className="seal">personalizado com carinho</span>
+            </div>
+            <h1 className="text-[clamp(2.5rem,6vw,4.5rem)] leading-[1.05] tracking-tight">
               {hero.title || brand.tagline || "Peças impressas em 3D, feitas para você"}
             </h1>
-            <p className="text-lg text-muted">{hero.subtitle || "Personalize com nome, cor e tamanho. Veja em 3D antes de comprar."}</p>
-            <div className="flex flex-wrap gap-3">
-              <Link href={hero.cta_href || "/busca"} className="rounded-xl bg-primary px-6 py-3 font-medium text-white hover:opacity-90">
+            <p className="max-w-xl text-xl text-muted">{hero.subtitle || "Personalize com nome, cor e tamanho. Veja em 3D antes de comprar."}</p>
+            <div className="flex flex-wrap gap-3 pt-2">
+              <Link href={hero.cta_href || "/busca"} className="btn w-full sm:w-auto">
                 {hero.cta_label || "Ver catálogo"}
               </Link>
+              {brand.contact_whatsapp && (
+                <a href={whatsappLink(brand.contact_whatsapp)} target="_blank" rel="noreferrer" className="btn-outline w-full sm:w-auto">
+                  Pedir pelo WhatsApp
+                </a>
+              )}
             </div>
           </div>
           {hero.image ? (
             // eslint-disable-next-line @next/next/no-img-element -- imagem WebP otimizada pela API
-            <img src={hero.image} alt="" className="aspect-[4/3] w-full rounded-3xl object-cover" />
+            <img src={hero.image} alt="" className="aspect-[4/3] w-full rounded-3xl object-cover shadow-card" />
           ) : (
             <div className="grid grid-cols-3 gap-3 text-5xl">
               {["✝️", "🔑", "🎁", "📦", "🚗", "🐶"].map((e) => (
-                <div key={e} className="flex aspect-square items-center justify-center rounded-2xl border border-border bg-bg">
+                <div key={e} className="card flex aspect-square items-center justify-center">
                   {e}
                 </div>
               ))}
@@ -49,13 +58,13 @@ export default async function Home() {
 
       {active.length > 0 && (
         <Container className="py-12">
-          <h2 className="mb-5 font-heading text-2xl font-bold">Escolha por tema</h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          <h2 className="mb-6 text-3xl sm:text-4xl">Escolha por tema</h2>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
             {active.map((n) => (
-              <Link key={n.slug} href={`/c/${n.slug}`} className="rounded-2xl border border-border bg-surface p-5 hover:border-secondary">
+              <Link key={n.slug} href={`/c/${n.slug}`} className="card p-5 transition hover:-translate-y-1">
                 <span className="text-3xl">{NICHE_EMOJI[n.slug] ?? "✨"}</span>
-                <p className="mt-2 font-medium">{n.name}</p>
-                <p className="text-xs text-muted">{n.products} produto(s)</p>
+                <p className="mt-2 font-heading text-lg font-semibold">{n.name}</p>
+                <p className="text-sm text-muted">{n.products} produto(s)</p>
               </Link>
             ))}
           </div>
@@ -70,9 +79,9 @@ export default async function Home() {
         sections.map((s) => (
           <Container key={s.title} className="py-6">
             <div className="mb-5 flex items-baseline justify-between gap-4">
-              <h2 className="font-heading text-2xl font-bold">{s.title}</h2>
+              <h2 className="text-3xl sm:text-4xl">{s.title}</h2>
               {s.href && (
-                <Link href={s.href} className="text-sm text-secondary hover:underline">
+                <Link href={s.href} className="font-bold text-primary underline decoration-2 hover:text-ink">
                   ver tudo →
                 </Link>
               )}

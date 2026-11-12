@@ -107,7 +107,7 @@ export function BuyBox({
             +
           </button>
         </div>
-        <button disabled={pending} className="flex-1 rounded-xl bg-primary px-6 py-3 font-semibold text-white hover:opacity-90 disabled:opacity-50">
+        <button disabled={pending} className="btn flex-1">
           {pending ? "Adicionando…" : "Adicionar ao carrinho"}
         </button>
       </div>

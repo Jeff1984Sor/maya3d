@@ -27,7 +27,21 @@ router = APIRouter(tags=["admin: loja e marca"])
 Session = Annotated[AsyncSession, Depends(get_session)]
 Storage = Annotated[LocalStorage, Depends(get_storage)]
 AIFactory = Annotated[ai.ProviderFactory, Depends(get_ai_factory)]
-TOKENS = ("bg", "surface", "ink", "muted", "primary", "secondary", "border")
+TOKENS = (
+    "bg",
+    "surface",
+    "ink",
+    "muted",
+    "primary",
+    "secondary",
+    "border",
+    "accent",
+    "soft",
+    "deep",
+)
+FONT_KEYS = ("heading", "body", "logo_texto")
+FONT_NAME = re.compile(r"^[A-Za-z0-9 ]{2,40}$")
+LOGO_TEXT = ("", "nome", "nome-destaque")
 HEX = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
 SLUG = re.compile(r"^[a-z0-9-]{2,80}$")
 MAX_IMAGE_BYTES = media.MAX_BYTES
@@ -56,6 +70,27 @@ class BrandIn(BaseModel):
     cnpj: str | None = Field(default=None, max_length=18)
     legal_name: str | None = Field(default=None, max_length=255)
     voice: str | None = Field(default=None, max_length=2000)
+    # None = não mexe (quem não manda fontes não apaga as escolhidas)
+    fonts: dict[str, str] | None = None
+
+    @field_validator("fonts")
+    @classmethod
+    def _fontes(cls, v: dict[str, str] | None) -> dict[str, str] | None:
+        if v is None:
+            return None
+        out: dict[str, str] = {}
+        for key, value in v.items():
+            value = value.strip()
+            if key not in FONT_KEYS:
+                raise ValueError(f"fonte desconhecida: {key}")
+            if key == "logo_texto":
+                if value not in LOGO_TEXT:
+                    raise ValueError("logo_texto: vazio, nome ou nome-destaque")
+            elif value and not FONT_NAME.match(value):
+                raise ValueError(f"nome de fonte inválido: {value!r} (ex.: Nunito)")
+            if value:
+                out[key] = value
+        return out
 
     @field_validator("colors")
     @classmethod
@@ -97,6 +132,8 @@ async def put_brand(payload: BrandIn, request: Request, session: Session) -> Bra
     if row is None:
         raise HTTPException(503, "marca não configurada (migrações)")
     data = payload.model_dump()
+    if data["fonts"] is None:
+        del data["fonts"]
     data["colors"] = {
         mode: {**row.colors.get(mode, {}), **data["colors"].get(mode, {})}
         for mode in ("light", "dark")
