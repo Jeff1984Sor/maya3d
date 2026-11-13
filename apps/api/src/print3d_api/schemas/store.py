@@ -58,6 +58,7 @@ class StoreProduct(StoreProductCard):
     parametric_model: str | None  # quando o produto tem personalizador 3D
     images: list[StoreImage] = []
     model3d: bool = False  # tem prévia 3D (girar e trocar de cor)
+    ml_url: str | None = None  # anúncio ativo no Mercado Livre (link público do canal)
 
 
 class CartLineIn(BaseModel):

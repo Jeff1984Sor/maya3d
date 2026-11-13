@@ -33,6 +33,7 @@ from print3d_api.models import (
     ProductImage,
     Variant,
 )
+from print3d_api.models.marketplace import ChannelListing
 from print3d_api.models.orders import OPS_CONFIG_ID
 from print3d_api.models.pricing import COST_CONFIG_ID
 from print3d_api.schemas.governance import GuardianCheckIn
@@ -339,6 +340,17 @@ async def product_detail(session: AsyncSession, slug: str) -> StoreProduct:
         )
     images = (await _images(session, [product.id]))[product.id]
     card = _card(ctx, product, variants, images[0].thumb_key if images else None)
+    ml_url = await session.scalar(
+        select(ChannelListing.permalink)
+        .where(
+            ChannelListing.product_id == product.id,
+            ChannelListing.channel == "mercadolivre",
+            ChannelListing.status == "publicado",
+            ChannelListing.permalink.is_not(None),
+        )
+        .order_by(ChannelListing.id)
+        .limit(1)
+    )
     return StoreProduct(
         **card.model_dump(),
         description=product.description,
@@ -365,6 +377,7 @@ async def product_detail(session: AsyncSession, slug: str) -> StoreProduct:
         ],
         parametric_model=str(model) if model else None,
         model3d=bool(design and (design.source_file_url or "").startswith("library/")),
+        ml_url=ml_url,
         images=[
             StoreImage(
                 url=media.public_url(i.key) or "",
