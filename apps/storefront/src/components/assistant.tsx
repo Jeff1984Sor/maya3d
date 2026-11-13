@@ -31,7 +31,10 @@ export function Assistant({ brand }: { brand: string }) {
     setError(null);
     setSuggestions([]);
     start(async () => {
-      const res = await askAssistant(history.map(({ role, content: c }) => ({ role, content: c })));
+      // falha de rede ou aba aberta antes de uma atualização da loja: avisa, não derruba a página
+      const res = await askAssistant(history.map(({ role, content: c }) => ({ role, content: c }))).catch(() => ({
+        error: "Não consegui responder agora. Recarregue a página e tente de novo.",
+      }));
       if ("error" in res) {
         setError(res.error);
         return;
