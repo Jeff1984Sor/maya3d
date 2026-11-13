@@ -7,6 +7,8 @@ Pula produtos que já têm anúncio. Uso:
     python tools/robo_ml_publicar.py <categoria> --api https://api.<dominio> [--dry-run]
 
 Trocou de conta no ML? --conta-nova-desde N ignora os anúncios de id <= N (os da conta antiga).
+Categoria pede dado que falta? --atributo PRODUCT_TYPE=Vaso (repetível). A altura (HEIGHT) sai
+da medida da peça. Categoria errada? --so-produto 165 --forcar-categoria MLB1234.
 
 Token do robô em ~/Downloads/robo-token.txt (painel → Integrações → Robô).
 """
@@ -65,6 +67,9 @@ def main() -> int:
         help="anúncios com id até este número são da conta antiga: não contam como publicados",
     )
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--atributo", action="append", default=[], help="ID=valor (repetível)")
+    ap.add_argument("--so-produto", action="append", type=int, default=[], help="id do produto")
+    ap.add_argument("--forcar-categoria", help="categoria do ML usada direto (ex.: MLB1234)")
     args = ap.parse_args()
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
 
@@ -75,12 +80,17 @@ def main() -> int:
     products = [
         p
         for p in c.get("/products", params={"limit": 1000}).json()
-        if p["category"] == args.categoria and p["status"] == "ativo"
+        if p["category"] == args.categoria
+        and p["status"] == "ativo"
+        and (not args.so_produto or p["id"] in args.so_produto)
     ]
     print(f"{len(products)} produtos em {args.categoria}")
     brand = c.get("/brand").json()["name"]
     # BRAND/MODEL a API já preenche; estes saem da marca e do material da peça
     auto = {"MANUFACTURER": brand, "MATERIAL": "Plástico PLA"}
+    for item in args.atributo:
+        key, _, value = item.partition("=")
+        auto[key.strip()] = value.strip()
     ok = 0
     for p in products:
         try:
@@ -96,13 +106,22 @@ def main() -> int:
             variant = next(
                 (v for v in variants if str(v.get("size_label") or "").startswith("M")), variants[0]
             )
+            dims = variant.get("dims_mm") or []
+            item_auto = dict(auto)
+            if len(dims) == 3:  # altura da peça em pé (medida da malha)
+                item_auto.setdefault("HEIGHT", f"{max(1, round(dims[2] / 10))} cm")
             quote = c.get(f"/products/{p['id']}/variants/{variant['id']}/quote").json()
             site = next(Decimal(q["price"]) for q in quote["quotes"] if q["channel"] == "site_pix")
             # 1º a categoria sugerida pelo ML; se ela pedir o que não sabemos (ex.: ISBN de
             # livro), a categoria reserva (--categoria-reserva)
             found = None
-            for category_id in (None, args.categoria_reserva):
-                found = attempt(c, variant["id"], site, category_id, auto)
+            choices = (
+                (args.forcar_categoria,)
+                if args.forcar_categoria
+                else (None, args.categoria_reserva)
+            )
+            for category_id in choices:
+                found = attempt(c, variant["id"], site, category_id, item_auto)
                 if found and not found[3]:
                     break
             if found is None or found[3]:
@@ -110,7 +129,11 @@ def main() -> int:
                 print(f"! {p['title']}: o ML pede {why} — pulei")
                 continue
             price, prev, category_id, _ = found
-            extra = {a["id"]: auto[a["id"]] for a in prev["required_attributes"] if a["id"] in auto}
+            extra = {
+                a["id"]: item_auto[a["id"]]
+                for a in prev["required_attributes"]
+                if a["id"] in item_auto
+            }
             line = (
                 f"{p['title']} | {variant.get('size_label')} | site R$ {site} → ML R$ {price}"
                 f" | {prev['category']['name']}"
