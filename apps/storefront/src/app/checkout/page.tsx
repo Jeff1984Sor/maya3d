@@ -15,7 +15,7 @@ export default async function CheckoutPage() {
     <Container className="grid gap-10 py-10 lg:grid-cols-[1fr_20rem]">
       <div>
         <h1 className="mb-6 font-heading text-3xl font-bold">Finalizar compra</h1>
-        <CheckoutForm />
+        <CheckoutForm subtotalPix={cart.subtotal} subtotalCard={cart.subtotal_card ?? null} />
       </div>
       <aside className="h-fit rounded-2xl border border-border bg-surface p-5 text-sm">
         <p className="mb-3 font-medium">Resumo</p>
@@ -33,6 +33,12 @@ export default async function CheckoutPage() {
           <span>Subtotal no Pix</span>
           <span>{money(cart.subtotal)}</span>
         </p>
+        {cart.subtotal_card && (
+          <p className="mt-1 flex justify-between text-muted">
+            <span>No cartão</span>
+            <span>{money(cart.subtotal_card)}</span>
+          </p>
+        )}
         <p className="mt-2 text-xs text-muted">A entrega é somada no próximo passo, conforme o CEP.</p>
       </aside>
     </Container>

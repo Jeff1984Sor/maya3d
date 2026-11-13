@@ -7,7 +7,8 @@ import { money } from "@/lib/format";
 
 const input = "w-full rounded-xl border border-border bg-surface px-3 py-2.5";
 
-export function CheckoutForm() {
+export function CheckoutForm({ subtotalPix, subtotalCard }: { subtotalPix: string; subtotalCard: string | null }) {
+  const [method, setMethod] = useState<"pix" | "cartao">("pix");
   const [state, action, pending] = useActionState<CheckoutState, FormData>(placeOrder, {});
   const [shipping, quote, quoting] = useActionState<ShippingState, FormData>(quoteShipping, {});
   const [option, setOption] = useState<string>("");
@@ -77,9 +78,34 @@ export function CheckoutForm() {
 
       <section className="space-y-3">
         <h2 className="font-heading text-lg font-semibold">Pagamento</h2>
-        <div className="rounded-xl border border-secondary bg-secondary/10 p-3 text-sm">
-          <strong>Pix</strong> — a chave aparece na próxima tela. A produção começa assim que o pagamento for confirmado.
+        <input type="hidden" name="payment_method" value={method} />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => setMethod("pix")}
+            aria-pressed={method === "pix"}
+            className={`rounded-2xl border-2 p-4 text-left text-sm ${method === "pix" ? "border-secondary bg-secondary/10" : "border-border bg-surface"}`}
+          >
+            <span className="flex items-center justify-between font-bold">
+              Pix <span className="seal">menor preço</span>
+            </span>
+            <span className="mt-1 block text-lg font-extrabold text-primary">{money(subtotalPix)}</span>
+            <span className="text-xs text-muted">QR Code na próxima tela · confirmação na hora</span>
+          </button>
+          {subtotalCard && (
+            <button
+              type="button"
+              onClick={() => setMethod("cartao")}
+              aria-pressed={method === "cartao"}
+              className={`rounded-2xl border-2 p-4 text-left text-sm ${method === "cartao" ? "border-secondary bg-secondary/10" : "border-border bg-surface"}`}
+            >
+              <span className="font-bold">Cartão de crédito</span>
+              <span className="mt-1 block text-lg font-extrabold text-primary">{money(subtotalCard)}</span>
+              <span className="text-xs text-muted">em até 12x · ambiente seguro do Mercado Pago</span>
+            </button>
+          )}
         </div>
+        <p className="text-xs text-muted">Valores dos produtos; a entrega é somada conforme o CEP. A produção começa assim que o pagamento for aprovado.</p>
         <textarea name="notes" rows={2} placeholder="Observações (opcional)" className={input} />
       </section>
 
@@ -96,7 +122,7 @@ export function CheckoutForm() {
 
       {state.error && <p className="rounded-xl bg-primary/10 p-3 text-sm text-primary">{state.error}</p>}
       <button disabled={pending || !shipping.quote} className="btn w-full text-lg">
-        {pending ? "Enviando pedido…" : "Fazer pedido e pagar com Pix"}
+        {pending ? "Enviando pedido…" : method === "cartao" ? "Fazer pedido e pagar com cartão" : "Fazer pedido e pagar com Pix"}
       </button>
       {!shipping.quote && (
         <p className="text-center text-sm text-muted">Informe o CEP em Entrega para calcular o frete e liberar o pagamento.</p>

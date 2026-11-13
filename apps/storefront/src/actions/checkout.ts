@@ -29,10 +29,44 @@ export async function placeOrder(_prev: CheckoutState, form: FormData): Promise<
         district: text("district"),
         shipping_option: text("shipping_option"),
         notes: text("notes") || null,
+        payment_method: text("payment_method") === "cartao" ? "cartao" : "pix",
       }),
     }));
   } catch (error) {
     return { error: error instanceof StoreApiError ? error.message : "Não foi possível finalizar agora." };
   }
   redirect(`/pedido/${publicToken}`);
+}
+
+export type CardData = {
+  token: string;
+  payment_method_id: string;
+  issuer_id?: string | number | null;
+  installments: number;
+  payer?: { email?: string; identification?: { type?: string; number?: string } };
+};
+export type CardResult = { status: string; paid: boolean; message: string } | { error: string };
+
+/** Cartão: só o token do formulário do Mercado Pago passa por aqui (nunca o número). */
+export async function payCard(orderToken: string, data: CardData): Promise<CardResult> {
+  if (!/^[A-Za-z0-9_-]{10,60}$/.test(orderToken)) return { error: "Pedido inválido." };
+  try {
+    return await storeApi<CardResult>(`/orders/${orderToken}/card`, {
+      method: "POST",
+      body: JSON.stringify({
+        token: data.token,
+        payment_method_id: data.payment_method_id,
+        issuer_id: data.issuer_id ? String(data.issuer_id) : null,
+        installments: Number(data.installments) || 1,
+        payer: {
+          email: data.payer?.email || null,
+          identification: data.payer?.identification?.number
+            ? { type: data.payer.identification.type || "CPF", number: data.payer.identification.number }
+            : null,
+        },
+      }),
+    });
+  } catch (error) {
+    return { error: error instanceof StoreApiError ? error.message : "Não foi possível processar o cartão agora." };
+  }
 }

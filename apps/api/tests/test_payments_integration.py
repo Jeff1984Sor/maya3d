@@ -43,6 +43,8 @@ class FakeMP:
         self.status = "pending"
         self.amount: Decimal | None = None
         self.charges: list[dict[str, Any]] = []
+        self.card_calls: list[dict[str, Any]] = []
+        self.card_status = ("approved", "accredited")
 
     async def create_pix(self, **kwargs: Any) -> PixCharge:
         self.charges.append(kwargs)
@@ -50,6 +52,13 @@ class FakeMP:
         return PixCharge(
             "555", "pending", "000201PIX", "iVBOR", None, datetime.now(UTC) + timedelta(hours=24)
         )
+
+    async def create_card(self, **kwargs: Any) -> PaymentState:
+        self.card_calls.append(kwargs)
+        self.amount = kwargs["amount"]
+        status, detail = self.card_status
+        n = len(self.card_calls)
+        return PaymentState(f"77{n}", status, kwargs["amount"], None, Decimal(0), detail)
 
     async def payment(self, payment_id: str) -> PaymentState:
         amount = self.amount or Decimal(0)
@@ -170,3 +179,88 @@ def test_aviso_assinado(client: TestClient, mp: FakeMP, store_catalog: Any) -> N
     assert ok.json() == {"status": "recebida"}
     orders = client.get("/v1/admin/orders", headers=H).json()
     assert orders[0]["status"] in ("na_fila", "imprimindo_amostra")
+
+
+def _card_setup(c: TestClient, mp: FakeMP) -> None:
+    c.put(
+        "/v1/admin/integrations",
+        json={
+            "values": {
+                "MP_ACCESS_TOKEN": "APP_USR-acesso",
+                "MP_PUBLIC_KEY": "APP_USR-publica",
+                "PUBLIC_API_URL": "https://api.loja.test",
+            }
+        },
+        headers=H,
+    )
+
+
+def _card_checkout(c: TestClient, catalog: Any) -> dict[str, Any]:
+    cat = catalog(c)
+    vid = c.get(f"/v1/store/products/{cat['slug']}").json()["variants"][0]["id"]
+    token = c.post("/v1/store/cart").json()["token"]
+    cart = c.put(f"/v1/store/cart/{token}", json={"items": [{"variant_id": vid, "quantity": 2}]})
+    assert Decimal(cart.json()["subtotal_card"]) > Decimal(cart.json()["subtotal"])
+    res = c.post(
+        "/v1/store/checkout",
+        json={
+            "cart_token": token,
+            "name": "Ana Souza",
+            "email": "ana@example.com",
+            "whatsapp": "+5515999990000",
+            "accept_terms": True,
+            "cep": "18000-000",
+            "street": "Rua A",
+            "number": "10",
+            "shipping_option": "local",
+            "payment_method": "cartao",
+        },
+    )
+    assert res.status_code == 201, res.text
+    out = dict(res.json())
+    out["cart_card"] = cart.json()["subtotal_card"]
+    return out
+
+
+CARD = {
+    "token": "tok-cartao-123456",
+    "payment_method_id": "visa",
+    "issuer_id": "310",
+    "installments": 2,
+    "payer": {"email": "ana@example.com", "identification": {"type": "CPF", "number": "123"}},
+}
+
+
+def test_cartao_recusado_depois_aprovado(
+    client: TestClient, mp: FakeMP, store_catalog: Any
+) -> None:
+    _card_setup(client, mp)
+    out = _card_checkout(client, store_catalog)
+    assert out["pix"] is None
+    assert out["card"]["public_key"] == "APP_USR-publica"
+    assert Decimal(out["total"]) >= Decimal(out["cart_card"])  # preço no cartão + frete
+    assert mp.charges == []  # cartão não gera Pix
+    tracking = client.get(f"/v1/store/orders/{out['public_token']}").json()
+    assert tracking["card"]["amount"] == out["total"]
+
+    mp.card_status = ("rejected", "cc_rejected_insufficient_amount")
+    res = client.post(f"/v1/store/orders/{out['public_token']}/card", json=CARD).json()
+    assert (res["paid"], res["status"]) == (False, "rejected")
+    assert "limite" in res["message"]
+    assert Decimal(str(mp.card_calls[0]["amount"])) == Decimal(out["total"])  # valor do servidor
+
+    mp.card_status = ("approved", "accredited")
+    again = {**CARD, "token": "tok-cartao-999999"}
+    res = client.post(f"/v1/store/orders/{out['public_token']}/card", json=again).json()
+    assert res["paid"] is True
+    tracking = client.get(f"/v1/store/orders/{out['public_token']}").json()
+    assert tracking["status"] in ("na_fila", "imprimindo_amostra")
+    assert tracking["card"] is None
+    paid_again = client.post(f"/v1/store/orders/{out['public_token']}/card", json=again)
+    assert paid_again.status_code == 422  # já pago
+
+
+def test_pedido_pix_nao_aceita_cartao(client: TestClient, mp: FakeMP, store_catalog: Any) -> None:
+    out = _checkout(client, store_catalog)
+    res = client.post(f"/v1/store/orders/{out['public_token']}/card", json=CARD)
+    assert res.status_code == 422

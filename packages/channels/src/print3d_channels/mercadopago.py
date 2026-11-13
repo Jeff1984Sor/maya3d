@@ -1,5 +1,9 @@
-"""Mercado Pago (gateway de pagamento). Pix pela API de pagamentos; cartão entra com o
-domínio (o formulário seguro do Mercado Pago exige HTTPS).
+"""Mercado Pago (gateway de pagamento). Pix e cartão pela API de pagamentos.
+
+Cartão: o número nunca passa por nós. O Card Payment Brick (sdk.mercadopago.com/js/v2, no
+navegador, com a Public Key) devolve um token de uso único + payment_method_id, issuer_id,
+installments e payer; o servidor cria o pagamento com o VALOR DO PEDIDO calculado aqui
+(github.com/mercadopago/sdk-js docs/bricks/card-payment.md, conferido em 2026-11-13).
 
 Documentação oficial:
 - POST https://api.mercadopago.com/v1/payments  (Bearer access token, X-Idempotency-Key)
@@ -45,6 +49,7 @@ class PaymentState:
     amount: Decimal
     external_reference: str | None
     fee: Decimal = Decimal(0)  # taxa cobrada pelo Mercado Pago (fee_details do pagamento)
+    status_detail: str = ""  # ex.: accredited, cc_rejected_insufficient_amount
 
     @property
     def paid(self) -> bool:
@@ -138,21 +143,61 @@ class MercadoPago:
             expires_at=expires_at,
         )
 
+    async def create_card(
+        self,
+        *,
+        amount: Decimal,
+        token: str,
+        installments: int,
+        payment_method_id: str,
+        issuer_id: str | None,
+        payer_email: str,
+        identification: dict[str, str] | None,
+        description: str,
+        reference: str,
+        idempotency_key: str,
+        notification_url: str | None = None,
+    ) -> PaymentState:
+        body: dict[str, Any] = {
+            "transaction_amount": float(amount.quantize(Decimal("0.01"))),
+            "token": token,
+            "installments": installments,
+            "payment_method_id": payment_method_id,
+            "description": description[:250],
+            "external_reference": reference,
+            "payer": {"email": payer_email},
+        }
+        if issuer_id:
+            body["issuer_id"] = issuer_id
+        if identification and identification.get("number"):
+            body["payer"]["identification"] = identification
+        if notification_url:
+            body["notification_url"] = notification_url
+        data = await self._request(
+            "POST", "/v1/payments", json=body, headers={"X-Idempotency-Key": idempotency_key}
+        )
+        return _state(data, str(data.get("id", "")))
+
     async def payment(self, payment_id: str) -> PaymentState:
         if not payment_id.isdigit():
             raise MercadoPagoError("id de pagamento inválido")
         data = await self._request("GET", f"/v1/payments/{payment_id}")
-        return PaymentState(
-            payment_id=str(data.get("id", payment_id)),
-            status=str(data.get("status", "")),
-            amount=Decimal(str(data.get("transaction_amount", 0))),
-            external_reference=data.get("external_reference"),
-            fee=sum(
-                (
-                    Decimal(str(f.get("amount", 0)))
-                    for f in data.get("fee_details") or []
-                    if f.get("type") == "mercadopago_fee"
-                ),
-                Decimal(0),
+        return _state(data, payment_id)
+
+
+def _state(data: dict[str, Any], payment_id: str) -> PaymentState:
+    return PaymentState(
+        payment_id=str(data.get("id", payment_id)),
+        status=str(data.get("status", "")),
+        amount=Decimal(str(data.get("transaction_amount", 0))),
+        external_reference=data.get("external_reference"),
+        fee=sum(
+            (
+                Decimal(str(f.get("amount", 0)))
+                for f in data.get("fee_details") or []
+                if f.get("type") == "mercadopago_fee"
             ),
-        )
+            Decimal(0),
+        ),
+        status_detail=str(data.get("status_detail") or ""),
+    )

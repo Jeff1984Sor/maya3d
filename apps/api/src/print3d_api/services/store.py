@@ -39,6 +39,9 @@ from print3d_api.models.pricing import COST_CONFIG_ID
 from print3d_api.schemas.governance import GuardianCheckIn
 from print3d_api.schemas.orders import OrderCreate, OrderItemIn
 from print3d_api.schemas.store import (
+    CardInstructions,
+    CardPaymentIn,
+    CardPaymentOut,
     CartIn,
     CartLine,
     CartOut,
@@ -410,13 +413,15 @@ async def cart_view(session: AsyncSession, token: str) -> CartOut:
     lines: list[CartLine] = []
     problems: list[str] = []
     subtotal = Decimal(0)
+    subtotal_card: Decimal | None = Decimal(0)
     for raw in cart.items:
         variant = await session.get(Variant, int(raw["variant_id"]))
         product = await session.get(Product, variant.product_id) if variant else None
         if variant is None or product is None or product.status != "ativo":
             problems.append("um item saiu de linha e foi ignorado")
             continue
-        price = price_variant(ctx, variant, product.category)["pix"]
+        prices = price_variant(ctx, variant, product.category)
+        price, price_card = prices["pix"], prices["card"]
         material_id = raw.get("material_id")
         color = next((c for c in _colors(ctx, variant) if c.material_id == material_id), None)
         if material_id is not None and color is None:
@@ -427,6 +432,11 @@ async def cart_view(session: AsyncSession, token: str) -> CartOut:
             problems.append(f"'{product.title}' está sem preço no momento")
         else:
             subtotal += line_total
+        subtotal_card = (
+            subtotal_card + price_card * qty
+            if subtotal_card is not None and price_card is not None
+            else None
+        )
         lines.append(
             CartLine(
                 variant_id=variant.id,
@@ -438,12 +448,14 @@ async def cart_view(session: AsyncSession, token: str) -> CartOut:
                 personalization=dict(raw.get("personalization") or {}),
                 unit_price=price,
                 line_total=line_total,
+                unit_price_card=price_card,
             )
         )
     return CartOut(
         token=token,
         items=lines,
         subtotal=subtotal,
+        subtotal_card=subtotal_card if lines else None,
         purchasable=bool(lines) and not problems,
         problems=sorted(set(problems)),
     )
@@ -629,6 +641,12 @@ async def checkout(
     option = next((o for o in quote.options if o.id == data.shipping_option), None)
     if option is None:
         raise StoreError("opção de entrega indisponível para este CEP")
+    card = data.payment_method == "cartao"
+    card_key = await payments.card_public_key(session) if card else None
+    if card and (card_key is None or view.subtotal_card is None):
+        raise StoreError("pagamento com cartão indisponível no momento: use o Pix")
+    if card and option.price is None:
+        raise StoreError("com frete a combinar, pague com Pix (o total ainda vai mudar)")
 
     customer = await session.scalar(select(Customer).where(Customer.email == data.email))
     if customer is None:
@@ -649,7 +667,8 @@ async def checkout(
                 OrderItemIn(
                     variant_id=line.variant_id,
                     quantity=line.quantity,
-                    unit_price=line.unit_price or Decimal(0),
+                    # cartão: preço com a tarifa do cartão; Pix: preço com desconto
+                    unit_price=(line.unit_price_card if card else line.unit_price) or Decimal(0),
                     personalization=line.personalization,
                     material_ids=[line.material_id] if line.material_id else [],
                 )
@@ -671,7 +690,7 @@ async def checkout(
             notes=data.notes,
         ),
         awaiting_payment=True,
-        payment_method="pix_manual",
+        payment_method="cartao_mercadopago" if card else "pix_manual",
     )
     cart = await session.get(Cart, data.cart_token)
     if cart is not None:
@@ -679,6 +698,14 @@ async def checkout(
     await session.commit()
     # Pix automático (Mercado Pago). Se o gateway falhar, o pedido segue com o Pix manual.
     payment = None
+    if card:  # o formulário de cartão aparece na página do pedido
+        return CheckoutOut(
+            order_number=order.number,
+            public_token=order.public_token or "",
+            total=order.total,
+            shipping_pending=False,
+            card=CardInstructions(public_key=card_key or "", amount=order.total, email=data.email),
+        )
     if option.price is not None:  # frete "a combinar": total ainda vai mudar, cobra depois
         try:
             payment = await payments.charge_pix(session, order, customer)
@@ -726,6 +753,8 @@ async def public_order(session: AsyncSession, token: str) -> PublicOrder:
     status = OrderStatus(order.status)
     ops = await session.get(OpsConfig, OPS_CONFIG_ID)
     total_qty = sum(i.quantity for i in items)
+    waiting = status is OrderStatus.AGUARDANDO_PAGAMENTO
+    paying_by_card = order.payment_method == "cartao_mercadopago"
     return PublicOrder(
         number=order.number,
         status=status.value,
@@ -747,6 +776,34 @@ async def public_order(session: AsyncSession, token: str) -> PublicOrder:
         ],
         progress=f"{sum(i.produced for i in items)} de {total_qty} prontas" if total_qty else "",
         pix=_pix(ops, order, await payments.current_pix(session, order.id))
-        if status is OrderStatus.AGUARDANDO_PAGAMENTO
+        if status is OrderStatus.AGUARDANDO_PAGAMENTO and not paying_by_card
         else None,
+        card=await _card_instructions(session, order) if waiting and paying_by_card else None,
     )
+
+
+async def _card_instructions(session: AsyncSession, order: Order) -> CardInstructions | None:
+    key = await payments.card_public_key(session)
+    if key is None:
+        return None
+    customer = await session.get(Customer, order.customer_id) if order.customer_id else None
+    return CardInstructions(
+        public_key=key, amount=order.total, email=customer.email if customer else None
+    )
+
+
+async def pay_card(session: AsyncSession, token: str, data: CardPaymentIn) -> CardPaymentOut:
+    order = await session.scalar(select(Order).where(Order.public_token == token))
+    if order is None:
+        raise StoreError("pedido não encontrado", not_found=True)
+    if order.status != OrderStatus.AGUARDANDO_PAGAMENTO.value:
+        raise StoreError("este pedido já foi pago ou não aceita pagamento")
+    if order.payment_method != "cartao_mercadopago":
+        raise StoreError("este pedido é pago com Pix")
+    customer = await session.get(Customer, order.customer_id) if order.customer_id else None
+    try:
+        return await payments.pay_card(session, order, customer, data)
+    except MercadoPagoError as exc:
+        await session.rollback()
+        log.warning("cartão recusado pelo gateway", extra={"pedido": order.id, "erro": str(exc)})
+        raise StoreError(f"não deu para processar o cartão: {exc}") from exc

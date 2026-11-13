@@ -1,6 +1,6 @@
 # 0004 — Gateway de pagamento (cartão) e Pix
 
-- **Status:** Proposta — **decidir antes da Fase 6** (exige pesquisa de tarifas e APIs atuais)
+- **Status:** Aceita (2026-11-13) — Mercado Pago para Pix e cartão; Cora segue como alternativa futura para Pix/boleto
 - **Data:** 2026-10-07
 
 ## Contexto
@@ -14,3 +14,9 @@ Taxa efetiva por meio de pagamento, prazo de repasse, API de Pix, tokenização/
 
 ## Consequências
 Nenhum código de pagamento nas Fases 0–5. O ADR será atualizado com a comparação datada.
+
+## Atualização 2026-11-13
+Mercado Pago em produção para **Pix** (QR + webhook assinado + consulta a cada 2 min) e **cartão**
+(Card Payment Brick: o número do cartão fica no Mercado Pago; o servidor recebe só o token e cobra o
+total do pedido calculado aqui, com a tarifa do canal `site_card`). Ambos pela API de Payments, que o
+Mercado Pago mantém mas não evolui mais; a migração para a API de Orders fica registrada como pendência.

@@ -85,3 +85,39 @@ def test_assinatura_do_aviso() -> None:
     assert not verify_signature("outro", header, "req-1", "ABC123")
     assert not verify_signature("segredo", header, "req-2", "ABC123")
     assert not verify_signature("segredo", None, "req-1", "ABC123")
+
+
+async def test_cartao_manda_token_e_valor_do_pedido() -> None:
+    seen: list[httpx.Request] = []
+    reply = {
+        "id": 987,
+        "status": "rejected",
+        "status_detail": "cc_rejected_insufficient_amount",
+        "transaction_amount": 64.9,
+    }
+    mp = MercadoPago("APP_USR-token", client=_client(201, reply, seen))
+    state = await mp.create_card(
+        amount=Decimal("64.9"),
+        token="card-tok-abc",
+        installments=3,
+        payment_method_id="visa",
+        issuer_id="310",
+        payer_email="ana@example.com",
+        identification={"type": "CPF", "number": "12345678909"},
+        description="Pedido #1001",
+        reference="pedido-1001",
+        idempotency_key="pedido-1-cartao-abc",
+        notification_url="https://api.loja.test/v1/webhooks/mercadopago",
+    )
+    assert (state.payment_id, state.status, state.paid) == ("987", "rejected", False)
+    assert state.status_detail == "cc_rejected_insufficient_amount"
+    body = json.loads(seen[0].content)
+    assert body["token"] == "card-tok-abc"
+    assert body["transaction_amount"] == 64.9
+    assert (body["installments"], body["payment_method_id"], body["issuer_id"]) == (
+        3,
+        "visa",
+        "310",
+    )
+    assert body["payer"]["identification"] == {"type": "CPF", "number": "12345678909"}
+    assert seen[0].headers["x-idempotency-key"] == "pedido-1-cartao-abc"

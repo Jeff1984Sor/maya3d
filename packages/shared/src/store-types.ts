@@ -52,8 +52,19 @@ export type CartLine = {
   personalization: Record<string, string>;
   unit_price: string | null;
   line_total: string | null;
+  unit_price_card?: string | null;
 };
-export type Cart = { token: string; items: CartLine[]; subtotal: string; purchasable: boolean; problems: string[] };
+export type Cart = {
+  token: string;
+  items: CartLine[];
+  subtotal: string;
+  purchasable: boolean;
+  problems: string[];
+  /** total no cartão (tarifa embutida); null = cartão indisponível */
+  subtotal_card?: string | null;
+};
+/** Formulário seguro do Mercado Pago na página do pedido. */
+export type CardInstructions = { public_key: string; amount: string; email: string | null };
 export type ShippingOption = { id: string; label: string; price: string | null; detail: string }; // me-<id> = Melhor Envio
 export type ShippingQuote = {
   cep: string;
@@ -92,10 +103,18 @@ export type PublicOrder = {
   timeline: { at: string; status: string; label: string; media_url: string | null }[];
   progress: string;
   pix: Pix | null;
+  card?: CardInstructions | null;
 };
 export type AssistantTurn = { role: "user" | "assistant"; content: string };
 export type AssistantAnswer = { reply: string; products: ProductCard[]; suggestions: string[] };
-export type CheckoutResult = { order_number: number; public_token: string; total: string; shipping_pending: boolean; pix: Pix };
+export type CheckoutResult = {
+  order_number: number;
+  public_token: string;
+  total: string;
+  shipping_pending: boolean;
+  pix: Pix | null;
+  card?: CardInstructions | null;
+};
 
 /** Erro da API: "detail" do FastAPI (texto ou lista de validações) vira frase legível. */
 export function storeErrorMessage(detail: unknown, fallback: string): string {

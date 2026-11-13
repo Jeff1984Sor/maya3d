@@ -4,6 +4,7 @@ import { Container } from "@/components/shop";
 import { money } from "@/lib/format";
 import { StoreApiError, storeApi, type PublicOrder } from "@/lib/store";
 import { AutoRefresh } from "./auto-refresh";
+import { CardPayment } from "./card-payment";
 import { CopyButton } from "./copy-button";
 
 export const metadata: Metadata = { title: "Meu pedido", robots: { index: false } };
@@ -25,6 +26,8 @@ export default async function PedidoPage({ params }: { params: Promise<{ token: 
       <p className="text-sm text-muted">Pedido #{order.number}</p>
       <h1 className="font-heading text-3xl font-bold">{order.status_label}</h1>
       {order.progress && <p className="mt-1 text-muted">{order.progress}</p>}
+
+      {order.card && <CardPayment orderToken={token} publicKey={order.card.public_key} amount={order.card.amount} email={order.card.email} />}
 
       {order.pix && (
         <section className="mt-8 rounded-2xl border-2 border-secondary bg-secondary/5 p-6">

@@ -16,6 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from print3d_api.models import ChannelFeeBand, Customer, Order, Payment
+from print3d_api.schemas.store import CardPaymentOut
 from print3d_api.services import audit, integrations, notifications, orders
 from print3d_channels.mercadopago import MercadoPago, MercadoPagoError, PaymentState
 from print3d_core.orders import OrderStatus
@@ -90,6 +91,79 @@ async def charge_pix(session: AsyncSession, order: Order, customer: Customer) ->
     return payment
 
 
+async def card_public_key(session: AsyncSession) -> str | None:
+    """Public Key do Mercado Pago (vai para o navegador) se o cartão estiver disponível."""
+    s = await _settings(session)
+    ok = (
+        s["MP_ACCESS_TOKEN"]
+        and s["MP_PUBLIC_KEY"]
+        and (s["PUBLIC_API_URL"] or "").startswith("https://")
+    )
+    return s["MP_PUBLIC_KEY"] if ok else None
+
+
+# mensagens para o cliente (status_detail do Mercado Pago); o resto cai na genérica
+_CARD_MESSAGES = {
+    "cc_rejected_insufficient_amount": "Saldo ou limite insuficiente. Tente outro cartão ou o Pix.",
+    "cc_rejected_bad_filled_security_code": "Código de segurança incorreto. Confira e tente.",
+    "cc_rejected_bad_filled_date": "Data de validade incorreta. Confira e tente de novo.",
+    "cc_rejected_bad_filled_card_number": "Número do cartão incorreto. Confira e tente de novo.",
+    "cc_rejected_bad_filled_other": "Algum dado do cartão está incorreto. Confira e tente de novo.",
+    "cc_rejected_call_for_authorize": "O banco pediu autorização: ligue para ele e tente de novo.",
+    "cc_rejected_card_disabled": "Cartão bloqueado para compras online. Fale com o banco.",
+    "cc_rejected_duplicated_payment": "Pagamento repetido. Confira o extrato antes de tentar.",
+    "cc_rejected_high_risk": "Pagamento recusado por segurança. Use outro cartão ou o Pix.",
+    "cc_rejected_max_attempts": "Muitas tentativas. Use outro cartão ou o Pix.",
+}
+
+
+async def pay_card(
+    session: AsyncSession, order: Order, customer: Customer | None, data: Any
+) -> CardPaymentOut:
+    """Cobra o cartão (token do formulário seguro) pelo TOTAL DO PEDIDO calculado aqui."""
+    mp = await gateway(session)
+    if mp is None:
+        raise MercadoPagoError("cartão indisponível no momento")
+    s = await _settings(session)
+    base = s["PUBLIC_API_URL"] or ""
+    notify = f"{base.rstrip('/')}/v1/webhooks/mercadopago" if base.startswith("https://") else None
+    email = (customer.email if customer else None) or (data.payer.email if data.payer else None)
+    ident = data.payer.identification if data.payer else None
+    state = await mp.create_card(
+        amount=order.total,
+        token=data.token,
+        installments=data.installments,
+        payment_method_id=data.payment_method_id,
+        issuer_id=data.issuer_id,
+        payer_email=email or "cliente@sem-email.invalid",
+        identification={"type": ident.type, "number": ident.number} if ident else None,
+        description=f"Pedido #{order.number}",
+        reference=f"pedido-{order.id}",
+        idempotency_key=f"pedido-{order.id}-cartao-{data.token[-24:]}",
+        notification_url=notify,
+    )
+    payment = Payment(
+        order_id=order.id,
+        provider=PROVIDER,
+        method="cartao",
+        external_id=state.payment_id,
+        status="pending",
+        amount=order.total,
+    )
+    session.add(payment)
+    await session.flush()
+    paid = await apply_state(session, payment, state)
+    if paid:
+        message = "Pagamento aprovado! Seu pedido já foi para a produção."
+    elif state.status in ("in_process", "pending", "authorized"):
+        message = "Pagamento em análise pelo banco. Avisamos assim que for aprovado."
+    else:
+        message = _CARD_MESSAGES.get(
+            state.status_detail, "O cartão foi recusado. Tente outro cartão ou pague com Pix."
+        )
+    return CardPaymentOut(status=state.status, paid=paid, message=message)
+
+
 async def current_pix(session: AsyncSession, order_id: int) -> Payment | None:
     return await session.scalar(
         select(Payment)
@@ -137,7 +211,7 @@ async def apply_state(session: AsyncSession, payment: Payment, state: PaymentSta
             session,
             order.id,
             OrderStatus.PAGO.value,
-            note="Pix aprovado pelo Mercado Pago",
+            note=f"{'Cartão' if payment.method == 'cartao' else 'Pix'} aprovado pelo Mercado Pago",
             media_url=None,
             actor="mercadopago",
         )
@@ -159,7 +233,7 @@ async def poll_pending(session: AsyncSession) -> int:
         await session.scalars(
             select(Payment.external_id).where(
                 Payment.provider == PROVIDER,
-                Payment.status == "pending",
+                Payment.status.in_(("pending", "in_process", "authorized")),
                 Payment.created_at >= since,
             )
         )

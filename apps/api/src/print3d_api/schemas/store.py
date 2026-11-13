@@ -3,7 +3,7 @@ clientes."""
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, EmailStr, Field, StringConstraints
 
@@ -82,6 +82,7 @@ class CartLine(BaseModel):
     personalization: dict[str, str]
     unit_price: Decimal | None
     line_total: Decimal | None
+    unit_price_card: Decimal | None = None  # preço no cartão (tarifa do cartão embutida)
 
 
 class CartOut(BaseModel):
@@ -90,6 +91,7 @@ class CartOut(BaseModel):
     subtotal: Decimal
     purchasable: bool
     problems: list[str] = []
+    subtotal_card: Decimal | None = None  # None = cartão indisponível para algum item
 
 
 SHIPPING_OPTION = r"^(local|retirada|envio|me-\d{1,6})$"
@@ -135,6 +137,7 @@ class CheckoutIn(BaseModel):
     district: str = Field(default="", max_length=80)
     shipping_option: Annotated[str, StringConstraints(pattern=SHIPPING_OPTION)]
     notes: str | None = Field(default=None, max_length=500)
+    payment_method: Literal["pix", "cartao"] = "pix"
 
 
 class PixInstructions(BaseModel):
@@ -148,12 +151,47 @@ class PixInstructions(BaseModel):
     expires_at: datetime | None = None
 
 
+class CardInstructions(BaseModel):
+    """O navegador mostra o formulário seguro do Mercado Pago com estes dados."""
+
+    public_key: str
+    amount: Decimal
+    email: str | None = None
+
+
 class CheckoutOut(BaseModel):
     order_number: int
     public_token: str
     total: Decimal
     shipping_pending: bool
-    pix: PixInstructions
+    pix: PixInstructions | None = None
+    card: CardInstructions | None = None
+
+
+class CardIdentification(BaseModel):
+    type: Annotated[str, StringConstraints(max_length=10)] = "CPF"
+    number: Annotated[str, StringConstraints(pattern=r"^[0-9.\-/]{0,20}$")] = ""
+
+
+class CardPayer(BaseModel):
+    email: EmailStr | None = None
+    identification: CardIdentification | None = None
+
+
+class CardPaymentIn(BaseModel):
+    """O que o Card Payment Brick devolve (sem o número do cartão: só o token)."""
+
+    token: Annotated[str, StringConstraints(min_length=8, max_length=200)]
+    payment_method_id: Annotated[str, StringConstraints(pattern=r"^[a-z0-9_-]{2,40}$")]
+    issuer_id: Annotated[str | None, StringConstraints(pattern=r"^\d{1,12}$")] = None
+    installments: int = Field(ge=1, le=24)
+    payer: CardPayer = CardPayer()
+
+
+class CardPaymentOut(BaseModel):
+    status: str  # approved | in_process | rejected ...
+    paid: bool
+    message: str
 
 
 class TimelineEntry(BaseModel):
@@ -173,3 +211,4 @@ class PublicOrder(BaseModel):
     timeline: list[TimelineEntry]
     progress: str
     pix: PixInstructions | None = None
+    card: CardInstructions | None = None

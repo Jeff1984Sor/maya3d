@@ -22,6 +22,8 @@ from print3d_api.models import Design, OpsConfig, Product, StorePage, Variant
 from print3d_api.models.orders import OPS_CONFIG_ID
 from print3d_api.schemas.governance import GuardianCheckIn
 from print3d_api.schemas.store import (
+    CardPaymentIn,
+    CardPaymentOut,
     CartIn,
     CartOut,
     CheckoutIn,
@@ -172,6 +174,15 @@ async def checkout(payload: CheckoutIn, session: Session, cep: Cep, quoter: Quot
         raise _http(exc) from exc
     except CepError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+
+
+@router.post("/orders/{token}/card", response_model=CardPaymentOut)
+async def pay_card(token: str, payload: CardPaymentIn, session: Session) -> CardPaymentOut:
+    """Cartão: recebe o token do formulário seguro do Mercado Pago (nunca o número)."""
+    try:
+        return await store.pay_card(session, token, payload)
+    except store.StoreError as exc:
+        raise _http(exc) from exc
 
 
 @router.get("/orders/{token}", response_model=PublicOrder)
