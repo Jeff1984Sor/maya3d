@@ -112,6 +112,10 @@ def main() -> None:
     ap.add_argument("--api", required=True)
     ap.add_argument("--acervo", type=Path, default=Path.home() / "Projetos" / "acervo-catolico-3d")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument(
+        "--colecao", default="acervo-catolico", help="só coleções cujo slug começa com isto"
+    )
+    ap.add_argument("--licenca", default=LICENSE, help="texto da licença gravado na coleção")
     args = ap.parse_args()
 
     files = sorted(
@@ -189,7 +193,7 @@ def main() -> None:
 
     # 2) Licença das coleções do acervo
     collections = [
-        c for c in call("GET", "/library/collections") if c["slug"].startswith("acervo-catolico")
+        c for c in call("GET", "/library/collections") if c["slug"].startswith(args.colecao)
     ]
     for col in collections:
         if not col.get("license_text"):
@@ -198,7 +202,7 @@ def main() -> None:
                 call(
                     "PUT",
                     f"/library/collections/{col['slug']}/license",
-                    json={"license_text": LICENSE},
+                    json={"license_text": args.licenca},
                 )
 
     # índice dos arquivos locais (nome original → caminho) para medir quem veio sem escala

@@ -3,7 +3,8 @@ pela IA. Roda no computador do dono (onde estão os arquivos) e fala com a API d
 
 Uso:
   python tools/robo_acervo.py --acervo <pasta> --api http://<servidor>:39000 \
-      [--token-file <arquivo>] [--dry-run] [--so-categoria "Cruzes e Crucifixos"]
+      [--token-file <arquivo>] [--dry-run] [--so-categoria "Cruzes e Crucifixos"] \
+      [--nicho religioso] [--colecao "Acervo Católico"] [--dica "peça religiosa impressa em 3D"]
 
 - Token de robô: painel → Integrações → Robô → Gerar token (vale 7 dias). O navegador baixa
   robo-token.txt e o robô pega o mais recente em Downloads; nunca imprime o token.
@@ -115,6 +116,11 @@ def main() -> None:
     ap.add_argument("--dry-run", action="store_true", help="só mostra o plano, não envia nada")
     ap.add_argument("--so-categoria", default=None)
     ap.add_argument("--sem-ia", action="store_true", help="cria os produtos sem enriquecer")
+    ap.add_argument("--nicho", default=NICHE, help="nicho dos produtos (slug)")
+    ap.add_argument("--colecao", default="Acervo Católico", help="prefixo do nome das coleções")
+    ap.add_argument(
+        "--dica", default="peça religiosa impressa em 3D", help="o que a IA deve saber da peça"
+    )
     args = ap.parse_args()
 
     root: Path = args.acervo
@@ -172,10 +178,10 @@ def main() -> None:
                 "POST",
                 "/library/collections",
                 json={
-                    "title": f"Acervo Católico — {category}",
-                    "niche": NICHE,
+                    "title": f"{args.colecao} — {category}",
+                    "niche": args.nicho,
                     "category": slug(category),
-                    "description": "Importado pelo robô a partir do acervo comprado.",
+                    "description": f"Importado pelo robô ({args.colecao}).",
                 },
             )["slug"]
             state["collections"][category] = cslug
@@ -229,10 +235,8 @@ def main() -> None:
                         "POST",
                         "/ai/enrich-product",
                         json={
-                            "hint": f"{model['title']} — peça religiosa impressa em 3D ({hints})"[
-                                :480
-                            ],
-                            "niche": NICHE,
+                            "hint": f"{model['title']} — {args.dica} ({hints})"[:480],
+                            "niche": args.nicho,
                             "category": slug(category),
                         },
                     )
