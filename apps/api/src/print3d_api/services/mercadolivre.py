@@ -335,7 +335,10 @@ async def publish(
         listing.permalink = created.get("permalink")
         listing.status = "publicado"
         details = details_block(variant, await manufacturing_days(session))
-        await ml.set_description(token, listing.external_id, f"{description}\n\n{details}")
+        try:
+            await ml.set_description(token, listing.external_id, f"{description}\n\n{details}")
+        except MercadoLivreError as exc:  # o anúncio já existe: não marca erro (evita duplicar)
+            listing.last_error = f"descrição recusada (use Atualizar): {exc}"[:2000]
         fee = await ml.listing_fee(
             token, price=price, category_id=category.id, listing_type=listing_type
         )
@@ -468,7 +471,8 @@ async def refresh_listing(session: AsyncSession, listing_id: int) -> dict[str, A
     listing = await session.get(ChannelListing, listing_id)
     if listing is None or listing.channel != CHANNEL:
         raise MLError("anúncio não existe", status=404)
-    if listing.status != "publicado" or not listing.external_id:
+    # "erro" com external_id = anúncio criado no ML cuja descrição falhou: atualizar conserta
+    if listing.status not in ("publicado", "erro") or not listing.external_id:
         raise MLError("o anúncio não está publicado", status=409)
     variant, product = await _variant(session, listing.variant_id)
     token = await access_token(session)
@@ -483,6 +487,7 @@ async def refresh_listing(session: AsyncSession, listing_id: int) -> dict[str, A
         await ml.update_description(token, listing.external_id, f"{description}\n\n{details}")
     except MercadoLivreError as exc:
         raise MLError(f"o Mercado Livre recusou a atualização: {exc}") from exc
+    listing.status, listing.last_error = "publicado", None
     await audit.record(
         session,
         actor="admin",
