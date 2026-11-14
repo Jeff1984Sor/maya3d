@@ -92,6 +92,8 @@ class FakeML:
         return {"id": item_id, **changes}  # o ML devolve o item já alterado
 
     async def get(self, token: str, resource: str) -> dict[str, Any]:
+        if resource.startswith("/items/"):
+            return self.resources.get(resource, {"listing_type_id": "gold_special"})
         return self.resources[resource]
 
     async def answer(self, token: str, question_id: int, text: str) -> None:

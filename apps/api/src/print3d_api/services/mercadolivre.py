@@ -515,7 +515,16 @@ async def set_listing_type(
     token = await access_token(session)
     ml = await client(session)
     try:
-        await ml.change_listing_type(token, listing.external_id, listing_type)
+        # o ML às vezes já trocou o tipo (ex.: anúncios do mesmo produto); aí só sincroniza
+        item = await ml.get(token, f"/items/{listing.external_id}")
+        if item.get("listing_type_id") != listing_type:
+            try:
+                await ml.change_listing_type(token, listing.external_id, listing_type)
+            except MercadoLivreError as exc:
+                raise MercadoLivreError(
+                    f"{exc} (hoje: {item.get('listing_type_id')}, status {item.get('status')}"
+                    f"/{','.join(item.get('sub_status') or []) or '-'})"
+                ) from exc
         fee = await ml.listing_fee(
             token,
             price=listing.price,
