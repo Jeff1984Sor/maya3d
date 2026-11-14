@@ -20,7 +20,10 @@ export function Assistant({ brand }: { brand: string }) {
   const [pending, start] = useTransition();
   const end = useRef<HTMLDivElement>(null);
 
-  useEffect(() => end.current?.scrollIntoView({ behavior: "smooth" }), [messages, pending]);
+  // chaves: scrollIntoView devolve uma Promise no Chrome novo e o React a trataria como limpeza
+  useEffect(() => {
+    end.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, pending]);
 
   function send(text: string) {
     const content = text.trim().slice(0, 600);

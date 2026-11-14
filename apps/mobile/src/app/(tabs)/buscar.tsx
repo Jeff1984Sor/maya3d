@@ -17,7 +17,9 @@ export default function SearchScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => setNiche(params.niche), [params.niche]);
+  useEffect(() => {
+    setNiche(params.niche);
+  }, [params.niche]);
 
   const search = useCallback(async () => {
     setLoading(true);
