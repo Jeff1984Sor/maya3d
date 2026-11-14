@@ -196,6 +196,38 @@ async def _copy(session: AsyncSession, product: Product) -> tuple[str, str]:
     return product.title, product.description or product.title
 
 
+def _cm(mm: float) -> str:
+    cm = round(mm / 10, 1)
+    return f"{int(cm)} cm" if cm == int(cm) else f"{cm:.1f} cm".replace(".", ",")
+
+
+def details_block(variant: Variant, manufacturing: int | None) -> str:
+    """Bloco padrão do anúncio: medidas reais da peça, material, prazo e cuidados."""
+    lines: list[str] = []
+    dims = variant.dims_mm or []
+    if len(dims) == 3:
+        width, depth, height = (float(d) for d in dims)
+        lines += [
+            "📏 MEDIDAS (aproximadas)",
+            f"• Altura: {_cm(height)}",
+            f"• Largura: {_cm(max(width, depth))}",
+            f"• Profundidade: {_cm(min(width, depth))}",
+            "",
+        ]
+    lines += [
+        "🧵 MATERIAL: plástico PLA impresso em 3D, acabamento fosco. Linhas finas de camada "
+        "podem aparecer: são a marca do processo, não defeito.",
+        (
+            f"⏱️ PRAZO: feito sob encomenda, em até {manufacturing} dias úteis antes do envio."
+            if manufacturing
+            else "⏱️ PRAZO: pronta entrega."
+        ),
+        "🧼 CUIDADOS: limpe com pano seco ou levemente úmido. Evite sol forte e calor "
+        "(carro fechado, perto do fogão): o PLA amolece acima de 55 °C.",
+    ]
+    return "\n".join(lines)
+
+
 async def _pictures(session: AsyncSession, product_id: int) -> list[str]:
     base = (await _settings(session))["PUBLIC_STORE_URL"]
     if not base or not base.startswith("https://"):
@@ -301,7 +333,8 @@ async def publish(
         listing.external_id = str(created["id"])
         listing.permalink = created.get("permalink")
         listing.status = "publicado"
-        await ml.set_description(token, listing.external_id, description)
+        details = details_block(variant, await manufacturing_days(session))
+        await ml.set_description(token, listing.external_id, f"{description}\n\n{details}")
         fee = await ml.listing_fee(
             token, price=price, category_id=category.id, listing_type=listing_type
         )
@@ -426,6 +459,39 @@ async def answer(session: AsyncSession, question_id: int, text: str) -> Marketpl
     )
     await session.commit()
     return question
+
+
+async def refresh_listing(session: AsyncSession, listing_id: int) -> dict[str, Any]:
+    """Reenvia ao ML as fotos atuais do produto (na ordem) e a descrição com o bloco de
+    medidas. Devolve quantas fotos o ML gravou."""
+    listing = await session.get(ChannelListing, listing_id)
+    if listing is None or listing.channel != CHANNEL:
+        raise MLError("anúncio não existe", status=404)
+    if listing.status != "publicado" or not listing.external_id:
+        raise MLError("o anúncio não está publicado", status=409)
+    variant, product = await _variant(session, listing.variant_id)
+    token = await access_token(session)
+    ml = await client(session)
+    pictures = await _pictures(session, product.id)
+    _, description = await _copy(session, product)
+    details = details_block(variant, await manufacturing_days(session))
+    try:
+        item = await ml.update_item(
+            token, listing.external_id, {"pictures": [{"source": u} for u in pictures[:10]]}
+        )
+        await ml.update_description(token, listing.external_id, f"{description}\n\n{details}")
+    except MercadoLivreError as exc:
+        raise MLError(f"o Mercado Livre recusou a atualização: {exc}") from exc
+    await audit.record(
+        session,
+        actor="admin",
+        action="ml_anuncio_atualizado",
+        entity_type="product",
+        entity_id=product.id,
+        payload={"anuncio": listing.external_id, "fotos": len(pictures[:10])},
+    )
+    await session.commit()
+    return {"listing_id": listing.id, "pictures": len(item.get("pictures") or pictures[:10])}
 
 
 async def set_free_shipping(session: AsyncSession, listing_id: int, enabled: bool) -> bool:

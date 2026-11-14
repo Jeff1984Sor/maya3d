@@ -45,6 +45,7 @@ class FakeML:
         self.fail_item = False
         self.resources: dict[str, dict[str, Any]] = {}
         self.updates: list[tuple[str, dict[str, Any]]] = []
+        self.descriptions: list[str] = []
 
     async def exchange_code(self, code: str, redirect_uri: str, verifier: str) -> Tokens:
         assert redirect_uri == "https://api.loja.test/v1/channels/mercadolivre/callback"
@@ -76,7 +77,10 @@ class FakeML:
         return {"id": "MLB999", "permalink": "https://produto.mercadolivre.com.br/MLB999"}
 
     async def set_description(self, token: str, item_id: str, text: str) -> None:
-        return None
+        self.descriptions.append(text)
+
+    async def update_description(self, token: str, item_id: str, text: str) -> None:
+        self.descriptions.append(text)
 
     async def update_item(
         self, token: str, item_id: str, changes: dict[str, Any]
@@ -189,6 +193,7 @@ def test_conecta_anuncia_importa_pedido_e_responde(client: TestClient, fake: Fak
     assert listing["status"] == "publicado"
     assert listing["external_id"] == "MLB999"
     assert fake.items[0]["pictures"][0]["source"].startswith("https://loja.test/m/media/")
+    assert "MATERIAL" in fake.descriptions[0]  # bloco padrão (medidas quando há dims)
 
     fake.fail_item = True
     failed = client.post(
@@ -246,6 +251,14 @@ def test_conecta_anuncia_importa_pedido_e_responde(client: TestClient, fake: Fak
     ).json()
     assert done["status"] == "respondida"
     assert fake.answers == [(88, "Temos sim!")]
+
+    refreshed = client.post(
+        f"/v1/admin/mercadolivre/listings/{listing['id']}/refresh", headers=H
+    ).json()
+    assert refreshed == {"listing_id": listing["id"], "pictures": 1}
+    sent = fake.updates.pop()
+    assert sent[1]["pictures"][0]["source"].startswith("https://loja.test/m/media/")
+    assert "CUIDADOS" in fake.descriptions[-1]
 
     free = client.put(
         f"/v1/admin/mercadolivre/listings/{listing['id']}/free-shipping",

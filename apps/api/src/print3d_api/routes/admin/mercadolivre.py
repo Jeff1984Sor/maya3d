@@ -147,6 +147,20 @@ async def answer(question_id: int, payload: AnswerIn, session: Session) -> Marke
         raise _http(exc) from exc
 
 
+class RefreshOut(BaseModel):
+    listing_id: int
+    pictures: int
+
+
+@router.post("/listings/{listing_id}/refresh", response_model=RefreshOut)
+async def refresh(listing_id: int, session: Session) -> RefreshOut:
+    """Reenvia fotos (na ordem do produto) e descrição com medidas para o anúncio."""
+    try:
+        return RefreshOut(**await ml.refresh_listing(session, listing_id))
+    except ERRORS as exc:
+        raise _http(exc) from exc
+
+
 class FreeShippingIn(BaseModel):
     enabled: bool = True
 
