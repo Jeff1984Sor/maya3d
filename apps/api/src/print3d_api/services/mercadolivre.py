@@ -500,6 +500,45 @@ async def refresh_listing(session: AsyncSession, listing_id: int) -> dict[str, A
     return {"listing_id": listing.id, "pictures": len(item.get("pictures") or pictures[:10])}
 
 
+async def set_listing_type(
+    session: AsyncSession, listing_id: int, listing_type: str
+) -> ChannelListing:
+    """Clássico (gold_special) ou Premium (gold_pro: 12x sem juros, mais exposição, tarifa
+    maior). Atualiza a tarifa real guardada no anúncio."""
+    listing = await session.get(ChannelListing, listing_id)
+    if listing is None or listing.channel != CHANNEL:
+        raise MLError("anúncio não existe", status=404)
+    if listing.status != "publicado" or not listing.external_id:
+        raise MLError("o anúncio não está publicado", status=409)
+    if listing.listing_type == listing_type:
+        return listing
+    token = await access_token(session)
+    ml = await client(session)
+    try:
+        await ml.change_listing_type(token, listing.external_id, listing_type)
+        fee = await ml.listing_fee(
+            token,
+            price=listing.price,
+            category_id=listing.category_id or "",
+            listing_type=listing_type,
+        )
+    except MercadoLivreError as exc:
+        raise MLError(f"o Mercado Livre recusou a troca de tipo: {exc}") from exc
+    previous = listing.listing_type
+    listing.listing_type = listing_type
+    listing.fee = fee.sale_fee
+    await audit.record(
+        session,
+        actor="admin",
+        action="ml_tipo_anuncio",
+        entity_type="product",
+        entity_id=listing.product_id,
+        payload={"anuncio": listing.external_id, "antes": previous, "depois": listing_type},
+    )
+    await session.commit()
+    return listing
+
+
 async def set_listing_price(session: AsyncSession, listing_id: int, price: Decimal) -> Decimal:
     """Troca o preço de um anúncio publicado (promoção, ajuste). Devolve o que o ML gravou."""
     listing = await session.get(ChannelListing, listing_id)

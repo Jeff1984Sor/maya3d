@@ -82,6 +82,9 @@ class FakeML:
     async def update_description(self, token: str, item_id: str, text: str) -> None:
         self.descriptions.append(text)
 
+    async def change_listing_type(self, token: str, item_id: str, listing_type: str) -> None:
+        self.updates.append((item_id, {"listing_type": listing_type}))
+
     async def update_item(
         self, token: str, item_id: str, changes: dict[str, Any]
     ) -> dict[str, Any]:
@@ -259,6 +262,14 @@ def test_conecta_anuncia_importa_pedido_e_responde(client: TestClient, fake: Fak
     sent = fake.updates.pop()
     assert sent[1]["pictures"][0]["source"].startswith("https://loja.test/m/media/")
     assert "CUIDADOS" in fake.descriptions[-1]
+
+    premium = client.put(
+        f"/v1/admin/mercadolivre/listings/{listing['id']}/listing-type",
+        json={"listing_type": "gold_pro"},
+        headers=H,
+    ).json()
+    assert premium["listing_type"] == "gold_pro"
+    assert fake.updates.pop() == ("MLB999", {"listing_type": "gold_pro"})
 
     priced = client.put(
         f"/v1/admin/mercadolivre/listings/{listing['id']}/price",

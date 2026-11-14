@@ -161,6 +161,21 @@ async def refresh(listing_id: int, session: Session) -> RefreshOut:
         raise _http(exc) from exc
 
 
+class ListingTypeIn(BaseModel):
+    listing_type: ListingType
+
+
+@router.put("/listings/{listing_id}/listing-type", response_model=ListingOut)
+async def set_listing_type(
+    listing_id: int, payload: ListingTypeIn, session: Session
+) -> ChannelListing:
+    """Clássico (gold_special) ou Premium (gold_pro)."""
+    try:
+        return await ml.set_listing_type(session, listing_id, payload.listing_type)
+    except ERRORS as exc:
+        raise _http(exc) from exc
+
+
 class PriceIn(BaseModel):
     price: Decimal = Field(gt=0, le=Decimal("100000"))
 

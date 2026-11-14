@@ -213,6 +213,12 @@ class MercadoLivre:
             "POST", f"/items/{item_id}/description", token=token, json={"plain_text": text}
         )
 
+    async def change_listing_type(self, token: str, item_id: str, listing_type: str) -> None:
+        """Troca o tipo do anúncio (gold_special = Clássico, gold_pro = Premium)."""
+        await self._request(
+            "POST", f"/items/{item_id}/listing_type", token=token, json={"id": listing_type}
+        )
+
     async def update_description(self, token: str, item_id: str, text: str) -> None:
         """Troca a descrição de um anúncio que já tem uma (POST é só para a primeira)."""
         await self._request(
