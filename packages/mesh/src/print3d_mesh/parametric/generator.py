@@ -13,6 +13,7 @@ from print3d_mesh.parametric.box import ParametricBox
 from print3d_mesh.parametric.cross import CrossWithName
 from print3d_mesh.parametric.keychain import KeychainLetterName
 from print3d_mesh.parametric.openscad import OpenScadRunner
+from print3d_mesh.parametric.ornament import PetPawName, SnowflakeName
 from print3d_mesh.parametric.plaque import PartyTag, PlaqueWithName
 from print3d_mesh.parametric.stand import PhoneStand
 
@@ -25,6 +26,8 @@ MODELS: dict[str, ParametricModel[Any]] = {
         PlaqueWithName(),
         PartyTag(),
         PhoneStand(),
+        SnowflakeName(),
+        PetPawName(),
     )
 }
 

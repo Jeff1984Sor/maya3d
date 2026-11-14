@@ -500,6 +500,34 @@ async def refresh_listing(session: AsyncSession, listing_id: int) -> dict[str, A
     return {"listing_id": listing.id, "pictures": len(item.get("pictures") or pictures[:10])}
 
 
+async def set_listing_price(session: AsyncSession, listing_id: int, price: Decimal) -> Decimal:
+    """Troca o preço de um anúncio publicado (promoção, ajuste). Devolve o que o ML gravou."""
+    listing = await session.get(ChannelListing, listing_id)
+    if listing is None or listing.channel != CHANNEL:
+        raise MLError("anúncio não existe", status=404)
+    if listing.status != "publicado" or not listing.external_id:
+        raise MLError("o anúncio não está publicado", status=409)
+    token = await access_token(session)
+    ml = await client(session)
+    try:
+        item = await ml.update_item(token, listing.external_id, {"price": float(price)})
+    except MercadoLivreError as exc:
+        raise MLError(f"o Mercado Livre recusou o preço: {exc}") from exc
+    saved = Decimal(str(item.get("price", price)))
+    previous = listing.price
+    listing.price = saved
+    await audit.record(
+        session,
+        actor="admin",
+        action="ml_preco",
+        entity_type="product",
+        entity_id=listing.product_id,
+        payload={"anuncio": listing.external_id, "antes": str(previous), "depois": str(saved)},
+    )
+    await session.commit()
+    return saved
+
+
 async def set_free_shipping(session: AsyncSession, listing_id: int, enabled: bool) -> bool:
     """Liga/desliga o frete grátis de um anúncio publicado. Devolve o que o ML gravou."""
     listing = await session.get(ChannelListing, listing_id)

@@ -260,6 +260,14 @@ def test_conecta_anuncia_importa_pedido_e_responde(client: TestClient, fake: Fak
     assert sent[1]["pictures"][0]["source"].startswith("https://loja.test/m/media/")
     assert "CUIDADOS" in fake.descriptions[-1]
 
+    priced = client.put(
+        f"/v1/admin/mercadolivre/listings/{listing['id']}/price",
+        json={"price": "27.90"},
+        headers=H,
+    ).json()
+    assert priced == {"listing_id": listing["id"], "price": "27.9"}
+    assert fake.updates.pop() == ("MLB999", {"price": 27.9})
+
     free = client.put(
         f"/v1/admin/mercadolivre/listings/{listing['id']}/free-shipping",
         json={"enabled": True},

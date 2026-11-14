@@ -91,6 +91,10 @@ CASES = [
     ("lembrancinha-tag", {"name": "Bento", "detail": "batizado", "shape": "circulo"}),
     ("suporte-celular", {}),
     ("suporte-celular", {"angle_deg": 75, "cable_slot": False, "phone_mm": 9}),
+    ("enfeite-floco-nome", {"name": "Aline"}),
+    ("enfeite-floco-nome", {"name": "Maria Eduarda", "size_mm": 100}),
+    ("enfeite-pata-nome", {"name": "Luna"}),
+    ("enfeite-pata-nome", {"name": "Bolinha", "size_mm": 60}),
 ]
 
 
@@ -110,3 +114,15 @@ def test_suporte_fica_em_pe(tmp_path: Path) -> None:
 
     mesh = trimesh.load(tmp_path / result.files["suporte"], force="mesh")
     assert mesh.bounds[0][1] >= -0.01  # nada abaixo da mesa (perfil no plano XY)
+
+
+def test_enfeites_com_nome() -> None:
+    flake, paw = MODELS["enfeite-floco-nome"], MODELS["enfeite-pata-nome"]
+    assert flake.text_fields == ("name",)
+    assert paw.text_fields == ("name",)
+    assert flake.parts(flake.parse({"name": "Elisa"})) == ["base", "nome"]
+    src = paw.scad(paw.parse({"name": "Luna"}), "nome")
+    assert 'N = "Luna";' in src
+    assert "Pacifico" in src
+    long = flake.parse({"name": "Maria Eduarda"})
+    assert long.name_size() < flake.parse({"name": "Ana"}).name_size()  # nome longo encolhe

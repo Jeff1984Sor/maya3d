@@ -161,6 +161,25 @@ async def refresh(listing_id: int, session: Session) -> RefreshOut:
         raise _http(exc) from exc
 
 
+class PriceIn(BaseModel):
+    price: Decimal = Field(gt=0, le=Decimal("100000"))
+
+
+class PriceOut(BaseModel):
+    listing_id: int
+    price: Decimal  # o que o Mercado Livre gravou
+
+
+@router.put("/listings/{listing_id}/price", response_model=PriceOut)
+async def set_price(listing_id: int, payload: PriceIn, session: Session) -> PriceOut:
+    """Troca o preço do anúncio no ML (ex.: promoção)."""
+    try:
+        saved = await ml.set_listing_price(session, listing_id, payload.price)
+    except ERRORS as exc:
+        raise _http(exc) from exc
+    return PriceOut(listing_id=listing_id, price=saved)
+
+
 class FreeShippingIn(BaseModel):
     enabled: bool = True
 
