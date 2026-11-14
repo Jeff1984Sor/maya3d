@@ -202,27 +202,28 @@ def _cm(mm: float) -> str:
 
 
 def details_block(variant: Variant, manufacturing: int | None) -> str:
-    """Bloco padrão do anúncio: medidas reais da peça, material, prazo e cuidados."""
+    """Bloco padrão do anúncio: medidas reais da peça, material, prazo e cuidados.
+    Sem emoji: a descrição do ML só aceita texto simples."""
     lines: list[str] = []
     dims = variant.dims_mm or []
     if len(dims) == 3:
         width, depth, height = (float(d) for d in dims)
         lines += [
-            "📏 MEDIDAS (aproximadas)",
-            f"• Altura: {_cm(height)}",
-            f"• Largura: {_cm(max(width, depth))}",
-            f"• Profundidade: {_cm(min(width, depth))}",
+            "MEDIDAS (aproximadas):",
+            f"- Altura: {_cm(height)}",
+            f"- Largura: {_cm(max(width, depth))}",
+            f"- Profundidade: {_cm(min(width, depth))}",
             "",
         ]
     lines += [
-        "🧵 MATERIAL: plástico PLA impresso em 3D, acabamento fosco. Linhas finas de camada "
+        "MATERIAL: plástico PLA impresso em 3D, acabamento fosco. Linhas finas de camada "
         "podem aparecer: são a marca do processo, não defeito.",
         (
-            f"⏱️ PRAZO: feito sob encomenda, em até {manufacturing} dias úteis antes do envio."
+            f"PRAZO: feito sob encomenda, em até {manufacturing} dias úteis antes do envio."
             if manufacturing
-            else "⏱️ PRAZO: pronta entrega."
+            else "PRAZO: pronta entrega."
         ),
-        "🧼 CUIDADOS: limpe com pano seco ou levemente úmido. Evite sol forte e calor "
+        "CUIDADOS: limpe com pano seco ou levemente úmido. Evite sol forte e calor "
         "(carro fechado, perto do fogão): o PLA amolece acima de 55 °C.",
     ]
     return "\n".join(lines)
