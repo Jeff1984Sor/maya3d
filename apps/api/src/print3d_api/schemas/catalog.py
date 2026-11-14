@@ -75,6 +75,7 @@ class VariantIn(BaseModel):
     post_minutes: int = Field(default=0, ge=0)
     packaging_id: int | None = None
     packed_weight_g: int | None = Field(default=None, gt=0)
+    price_override: Decimal | None = Field(default=None, gt=0, description="preço fixo no Pix")
 
 
 class VariantPatch(BaseModel):
@@ -88,6 +89,7 @@ class VariantPatch(BaseModel):
     post_minutes: int | None = Field(default=None, ge=0)
     packaging_id: int | None = None
     packed_weight_g: int | None = Field(default=None, gt=0)
+    price_override: Decimal | None = Field(default=None, ge=0, description="0 = volta ao calculado")
 
 
 class VariantOut(VariantIn):

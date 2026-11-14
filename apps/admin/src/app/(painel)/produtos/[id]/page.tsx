@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { addVariant, deleteProduct, deleteVariant, setStatus, updateProduct } from "@/actions/products";
+import { addVariant, deleteProduct, deleteVariant, setStatus, setVariantPrice, updateProduct } from "@/actions/products";
 import type { ChannelCopy } from "@/actions/ai";
 import type { ProductImage } from "@/actions/content";
 import type { MlListing, MlPreview, MlStatus } from "@/actions/mercadolivre";
@@ -275,6 +275,12 @@ function VariantCard({
           {variant.print_seconds ? ` · ${(variant.print_seconds / 3600).toFixed(1)} h` : ""}
         </p>
       )}
+      <form action={setVariantPrice.bind(null, productId, variant.id)} className="mt-3 flex flex-wrap items-end gap-2 text-sm">
+        <Label label="Preço fixo no Pix (R$)" hint="vazio = calculado pelo custo; nunca fica abaixo do custo">
+          <input name="price_override" inputMode="decimal" defaultValue={variant.price_override ?? ""} placeholder="calculado" className={`${inputClass} w-36`} />
+        </Label>
+        <Button type="submit">Salvar preço</Button>
+      </form>
       {quote.ready ? (
         <div className="mt-3 overflow-x-auto">
           <table className="w-full text-sm">

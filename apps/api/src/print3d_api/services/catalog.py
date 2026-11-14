@@ -231,6 +231,8 @@ async def update_variant(
     variant = await _get_variant(session, product_id, variant_id)
     for field, value in patch.model_dump(exclude_unset=True).items():
         setattr(variant, field, value)
+    if not variant.price_override:  # 0 = volta ao preço calculado
+        variant.price_override = None
     if variant.slicing_source != "fatiador":
         variant.slicing_source = _slicing_source(variant.grams_by_material, variant.print_seconds)
     await session.commit()
@@ -280,9 +282,26 @@ async def quote_variant(
         )
     except pricing.QuoteInputError as exc:
         return VariantQuoteOut(ready=False, reason=str(exc))
+    quotes = [q.model_dump(mode="json") for q in result.quotes]
+    if variant.price_override:  # preço fixo do dono: Pix e cartão do site seguem a loja
+        from print3d_api.services.store import apply_override
+
+        by = {q["channel"]: q for q in quotes}
+        site = {
+            "pix": Decimal(str(by["site_pix"]["price"]))
+            if by.get("site_pix", {}).get("price")
+            else None,
+            "card": Decimal(str(by["site_card"]["price"]))
+            if by.get("site_card", {}).get("price")
+            else None,
+        }
+        fixed = apply_override(site, variant.price_override, result.cost.total)
+        for key, channel in (("pix", "site_pix"), ("card", "site_card")):
+            if channel in by and fixed[key] is not None:
+                by[channel]["price"] = str(fixed[key])
     return VariantQuoteOut(
         ready=True,
         cost_total=result.cost.total,
-        quotes=[q.model_dump(mode="json") for q in result.quotes],
+        quotes=quotes,
         warnings=result.warnings,
     )

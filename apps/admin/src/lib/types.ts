@@ -107,6 +107,7 @@ export interface Variant {
   post_minutes: number;
   packaging_id: number | null;
   packed_weight_g: number | null;
+  price_override?: string | null;
   slicing_source: "a_confirmar" | "manual" | "fatiador";
 }
 

@@ -155,7 +155,20 @@ def price_variant(ctx: PriceContext, variant: Variant, category: str) -> dict[st
             out[key] = quote_channel(channel, cost.total, bands.get(channel, []), rule).price
         except PricingError:
             out[key] = None
-    return out
+    return apply_override(out, variant.price_override, cost.total)
+
+
+def apply_override(
+    prices: dict[str, Decimal | None], override: Decimal | None, cost: Decimal
+) -> dict[str, Decimal | None]:
+    """Preço fixo do dono no Pix (nunca abaixo do custo); o cartão mantém a mesma proporção
+    do calculado (a tarifa do cartão continua coberta)."""
+    pix, card = prices["pix"], prices["card"]
+    if not override or pix is None:
+        return prices
+    fixed = max(override, cost.quantize(Decimal("0.01")))
+    ratio = (card / pix) if card else Decimal(1)
+    return {"pix": fixed, "card": (fixed * ratio).quantize(Decimal("0.01"))}
 
 
 def _colors(ctx: PriceContext, variant: Variant) -> list[ColorOption]:

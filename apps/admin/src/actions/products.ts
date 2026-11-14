@@ -121,6 +121,19 @@ export async function addVariant(productId: number, form: FormData): Promise<voi
   redirect(`/produtos/${productId}?ok=${encodeURIComponent("Variante adicionada.")}`);
 }
 
+/** Preço fixo no Pix (vazio ou 0 = volta ao calculado pelo custo). */
+export async function setVariantPrice(productId: number, variantId: number, form: FormData): Promise<void> {
+  await requireSession();
+  const value = Number(text(form, "price_override").replace(",", "."));
+  try {
+    await api.patch(`/products/${productId}/variants/${variantId}`, { price_override: value > 0 ? value : 0 });
+  } catch (error) {
+    fail(`/produtos/${productId}`, error);
+  }
+  revalidatePath(`/produtos/${productId}`);
+  redirect(`/produtos/${productId}?ok=${encodeURIComponent(value > 0 ? "Preço fixo salvo." : "Voltou ao preço calculado.")}`);
+}
+
 export async function deleteVariant(productId: number, variantId: number): Promise<void> {
   await requireSession();
   try {

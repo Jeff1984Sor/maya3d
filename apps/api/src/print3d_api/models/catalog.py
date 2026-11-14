@@ -4,9 +4,10 @@ Embedding do produto (pgvector) entra na Fase 6, quando o modelo de embedding es
 (a dimensão do vetor depende dele).
 """
 
+from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import Boolean, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -74,3 +75,5 @@ class Variant(IdMixin, TimestampMixin, Base):
     post_minutes: Mapped[int] = mapped_column(Integer, default=0)
     packaging_id: Mapped[int | None] = mapped_column(ForeignKey("packaging_boxes.id"))
     packed_weight_g: Mapped[int | None] = mapped_column(Integer)
+    # preço fixo no Pix definido pelo dono (vale se cobrir o custo); None = calculado
+    price_override: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
