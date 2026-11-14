@@ -63,7 +63,7 @@ def main() -> int:
             fee_rate = min(max(fee_rate, Decimal("0.10")), Decimal("0.25"))
             floor = ends_90((cost + Decimal("6")) / (1 - fee_rate))  # + R$ 6 de tarifa fixa do ML
             wanted = ends_90(base * (100 - args.pct) / 100)
-            new = max(wanted, floor)
+            new = min(max(wanted, floor), current)  # desconto nunca sobe o preço
             if new == floor and floor > wanted:
                 floor_hits += 1
             else:
