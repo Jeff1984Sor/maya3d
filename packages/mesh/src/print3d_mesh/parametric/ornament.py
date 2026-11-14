@@ -67,14 +67,15 @@ class SnowflakeName(ParametricModel[FlakeParams]):
 _FLAKE_SCAD = """
 R = D / 2;
 W = D * 0.07;  // largura do aro
-module arm(len) {  // braço de floco na borda: haste + duas pontas em V
-    translate([-1.2, 0]) square([2.4, len]);
-    translate([0, len * 0.55]) rotate(40) translate([-1.1, 0]) square([2.2, len * 0.45]);
-    translate([0, len * 0.55]) rotate(-40) translate([-1.1, 0]) square([2.2, len * 0.45]);
+module arm(len) {  // braço de floco na borda: haste + dois pares de pontas em V
+    translate([-1.4, 0]) square([2.8, len]);
+    for (f = [0.35, 0.68]) for (s = [-1, 1])
+        translate([0, len * f]) rotate(s * 45) translate([-1.1, 0]) square([2.2, len * 0.42]);
+    translate([0, len]) circle(r = 1.8);
 }
 module rim2d() {
     difference() { circle(r = R - W * 0.2); circle(r = R - W); }
-    for (a = [0 : 30 : 359]) rotate(a) translate([0, R - W * 0.9]) arm(W * 1.4);
+    for (a = [30 : 60 : 359]) rotate(a) translate([0, R - W * 0.9]) arm(W * 2.6);
 }
 module ring2d() difference() {
     union() {
