@@ -31,13 +31,22 @@ def ends_90(value: Decimal) -> Decimal:
 
 
 def attempt(
-    c: httpx.Client, variant_id: int, site: Decimal, category_id: str | None, auto: dict[str, str]
+    c: httpx.Client,
+    variant_id: int,
+    site: Decimal,
+    category_id: str | None,
+    auto: dict[str, str],
+    listing_type: str,
 ) -> tuple[Decimal, dict[str, Any], str | None, list[str]] | None:
     """Preço (site + tarifa real) e o que falta na categoria; None se o ML recusar."""
     price = site
     prev: dict[str, Any] = {}
     for _ in range(3):  # a tarifa depende do preço: converge em 2-3 voltas
-        body: dict[str, Any] = {"variant_id": variant_id, "price": str(price)}
+        body: dict[str, Any] = {
+            "variant_id": variant_id,
+            "price": str(price),
+            "listing_type": listing_type,
+        }
         if category_id:
             body["category_id"] = category_id
         pv = c.post("/mercadolivre/preview", json=body)
@@ -70,6 +79,12 @@ def main() -> int:
     ap.add_argument("--atributo", action="append", default=[], help="ID=valor (repetível)")
     ap.add_argument("--so-produto", action="append", type=int, default=[], help="id do produto")
     ap.add_argument("--forcar-categoria", help="categoria do ML usada direto (ex.: MLB1234)")
+    ap.add_argument(
+        "--tipo",
+        choices=("gold_pro", "gold_special"),
+        default="gold_pro",
+        help="gold_pro = Premium (padrão), gold_special = Clássico",
+    )
     args = ap.parse_args()
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
 
@@ -121,7 +136,7 @@ def main() -> int:
                 else (None, args.categoria_reserva)
             )
             for category_id in choices:
-                found = attempt(c, variant["id"], site, category_id, item_auto)
+                found = attempt(c, variant["id"], site, category_id, item_auto, args.tipo)
                 if found and not found[3]:
                     break
             if found is None or found[3]:
@@ -141,7 +156,12 @@ def main() -> int:
             if args.dry_run:
                 print(f"~ {line}")
                 continue
-            body = {"variant_id": variant["id"], "price": str(price), "attributes": extra}
+            body = {
+                "variant_id": variant["id"],
+                "price": str(price),
+                "listing_type": args.tipo,
+                "attributes": extra,
+            }
             if category_id:
                 body["category_id"] = category_id
             r = c.post("/mercadolivre/listings", json=body)
