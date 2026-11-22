@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from print3d_api.models import (
     Customer,
     Material,
+    Notification,
     OpsConfig,
     Order,
     OrderEvent,
@@ -34,7 +35,7 @@ from print3d_api.schemas.orders import (
     PrintJobOut,
     QueueGroup,
 )
-from print3d_api.services import audit, notifications
+from print3d_api.services import audit, notifications, order_files
 from print3d_core.orders import (
     NEXT_STEP,
     TRANSITIONS,
@@ -377,6 +378,7 @@ def _summary(order: Order, items: Sequence[OrderItem]) -> dict[str, Any]:
     return {
         **OrderSummary.model_validate(order).model_dump(),
         "progress": _progress(items),
+        "items_summary": "; ".join(f"{i.quantity}x {i.title}" for i in items)[:300],
         "next_step": nxt.value if nxt else None,
     }
 
@@ -415,6 +417,16 @@ async def detail(session: AsyncSession, order_id: int) -> OrderDetail:
         )
     ).all()
     customer = await session.get(Customer, order.customer_id) if order.customer_id else None
+    notes = (
+        await session.scalars(
+            select(Notification).where(Notification.order_id == order.id).order_by(Notification.id)
+        )
+    ).all()
+    item_rows = []
+    for i in items:
+        row = OrderItemOut.model_validate(i)
+        row.production = await order_files.item_production(session, i)
+        item_rows.append(row)
     return OrderDetail.model_validate(
         {
             **_summary(order, items),
@@ -426,11 +438,22 @@ async def detail(session: AsyncSession, order_id: int) -> OrderDetail:
             "sample_rounds": order.sample_rounds,
             "notes": order.notes,
             "shipping_address": order.shipping_address,
-            "items": [OrderItemOut.model_validate(i) for i in items],
+            "items": item_rows,
             "events": [OrderEventOut.model_validate(e) for e in events],
             "jobs": [PrintJobOut.model_validate(j) for j in jobs],
             "allowed": sorted(s.value for s in TRANSITIONS[S(order.status)]),
             "customer": CustomerOut.model_validate(customer) if customer else None,
+            "notifications": [
+                {
+                    "created_at": n.created_at,
+                    "audience": n.audience,
+                    "template": n.template,
+                    "status": n.status,
+                    "attempts": n.attempts,
+                    "last_error": n.last_error,
+                }
+                for n in notes
+            ],
         }
     )
 

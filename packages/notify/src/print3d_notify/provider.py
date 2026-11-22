@@ -14,6 +14,7 @@ class OutboundMessage(BaseModel):
     to: str  # E.164
     body: str
     template: str | None = None  # obrigatório fora da janela de 24h
+    force_template: bool = False  # a Meta já recusou a mensagem livre: vai direto o template
     template_params: list[str] = []
     media_url: str | None = None
     buttons: list[Button] = []

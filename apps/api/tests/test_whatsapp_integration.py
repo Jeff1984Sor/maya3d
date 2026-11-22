@@ -220,3 +220,30 @@ def test_mesmo_numero() -> None:
     assert same_number("15999990000", "5515999990000")
     assert not same_number("5515999990000", "5515999990001")
     assert not same_number(None, "1")
+
+
+def test_recibo_de_falha_aparece_no_pedido(client: TestClient, sent: list[OutboundMessage]) -> None:
+    order = _order_with_sample(client)
+    client.post("/v1/admin/notifications/dispatch", headers=H)
+    sale = next(n for n in _notes(client) if n["template"] == "nova_venda")
+    assert sale["status"] == "enviado"
+    wamid = f"wamid.{next(i for i, m in enumerate(sent) if 'Nova venda' in m.body) + 1}"
+    receipt = {
+        "id": wamid,
+        "status": "failed",
+        "errors": [{"code": 131047, "title": "Re-engagement message"}],
+    }
+    raw = json.dumps({"entry": [{"changes": [{"value": {"statuses": [receipt]}}]}]}).encode()
+    sig = "sha256=" + hmac.new(SECRET.encode(), raw, hashlib.sha256).hexdigest()
+    res = client.post(
+        "/v1/webhooks/whatsapp",
+        content=raw,
+        headers={"x-hub-signature-256": sig, "content-type": "application/json"},
+    )
+    assert res.status_code == 200
+    detail = client.get(f"/v1/admin/orders/{order['id']}", headers=H).json()
+    note = next(n for n in detail["notifications"] if n["template"] == "nova_venda")
+    assert note["status"] == "falhou"  # sem template cadastrado: o painel explica o que fazer
+    assert "template" in note["last_error"]
+    assert detail["items"][0]["production"]["product_title"] == "Chaveiro nome"
+    assert "Chaveiro nome" in client.get("/v1/admin/orders", headers=H).json()[0]["items_summary"]

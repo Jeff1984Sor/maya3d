@@ -7,7 +7,72 @@ import { Badge, Button, Card, Label, PageHeader, inputClass } from "@/components
 import { AdminApiError, api } from "@/lib/admin-api";
 import { formatMoney } from "@/lib/form";
 import { label, statusTone } from "@/lib/order-labels";
-import type { OrderDetail } from "@/lib/types";
+import type { ItemProduction, OrderDetail, ProductionFile } from "@/lib/types";
+
+const fileUrl = (key: string) => `/api/files/${key.split("/").map(encodeURIComponent).join("/")}`;
+
+const NOTE_LABELS: Record<string, string> = {
+  pendente: "na fila de envio",
+  enviado: "enviado (aguardando confirmação)",
+  entregue: "entregue",
+  lido: "lido",
+  falhou: "não chegou",
+  ignorado: "não enviado",
+};
+
+function Files({ files }: { files: ProductionFile[] }) {
+  if (files.length === 0) return <span className="text-xs text-muted">sem arquivo 3D cadastrado</span>;
+  return (
+    <span className="flex flex-wrap gap-2">
+      {files.map((f) => (
+        <a key={f.key} href={fileUrl(f.key)} className="rounded-lg border border-border px-2 py-1 text-xs text-secondary hover:underline">
+          ⬇ {f.name}
+        </a>
+      ))}
+    </span>
+  );
+}
+
+function Production({ p, personalized }: { p: ItemProduction; personalized: boolean }) {
+  return (
+    <div className="mt-2 flex gap-3">
+      {p.image && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={fileUrl(p.image)} alt={p.product_title} className="h-20 w-20 shrink-0 rounded-lg border border-border bg-bg object-contain" />
+      )}
+      <div className="min-w-0 space-y-1">
+        <Link href={`/produtos/${p.product_id}`} className="block text-xs text-secondary hover:underline">
+          {p.product_title}
+          {p.size_label ? ` · ${p.size_label}` : ""}
+        </Link>
+        {p.parametric ? (
+          <p className="text-xs">
+            Peça com nome:{" "}
+            {personalized ? "o nome está acima." : "no Mercado Livre o comprador manda o nome pelo chat da venda."}{" "}
+            <Link href={`/parametricos/${p.parametric}`} className="text-secondary hover:underline">
+              gerar o arquivo com o nome →
+            </Link>
+          </p>
+        ) : p.kit.length > 0 ? (
+          <ul className="space-y-1">
+            {p.kit.map((k) => (
+              <li key={k.title} className="text-xs">
+                <span className="font-medium">
+                  {k.quantity}× {k.title}
+                </span>
+                <span className="mt-1 block">
+                  <Files files={k.files} />
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <Files files={p.files} />
+        )}
+      </div>
+    </div>
+  );
+}
 
 export const dynamic = "force-dynamic";
 
@@ -83,11 +148,12 @@ export default async function PedidoPage({
                       {Object.keys(i.personalization).length > 0 && (
                         <span className="block text-xs text-muted">{JSON.stringify(i.personalization)}</span>
                       )}
+                      {i.production && <Production p={i.production} personalized={Object.keys(i.personalization).length > 0} />}
                     </td>
-                    <td className="py-2 text-right text-muted">
+                    <td className="py-2 text-right align-top text-muted">
                       {i.produced}/{i.quantity} {i.needs_sample && <Badge tone="warn">amostra</Badge>}
                     </td>
-                    <td className="py-2 text-right">{formatMoney(Number(i.unit_price) * i.quantity)}</td>
+                    <td className="py-2 text-right align-top">{formatMoney(Number(i.unit_price) * i.quantity)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -134,6 +200,24 @@ export default async function PedidoPage({
               ))}
             </ol>
           </Card>
+          {(order.notifications ?? []).length > 0 && (
+            <Card title="Avisos">
+              <ul className="space-y-2 text-sm">
+                {(order.notifications ?? []).map((n, k) => (
+                  <li key={k}>
+                    <p>
+                      {n.audience === "dono" ? "Seu WhatsApp" : "Cliente"} · {n.template.replaceAll("_", " ")}:{" "}
+                      <Badge tone={n.status === "falhou" ? "warn" : undefined}>{NOTE_LABELS[n.status] ?? n.status}</Badge>
+                    </p>
+                    {n.last_error && <p className="text-xs text-muted">{n.last_error}</p>}
+                  </li>
+                ))}
+              </ul>
+              <Link href="/integracoes" className="mt-3 inline-block text-xs text-secondary hover:underline">
+                WhatsApp em Integrações →
+              </Link>
+            </Card>
+          )}
           {order.customer && (
             <Card title="Cliente">
               <p className="text-sm">{order.customer.name}</p>

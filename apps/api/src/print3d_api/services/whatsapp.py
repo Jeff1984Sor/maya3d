@@ -20,6 +20,7 @@ from print3d_api.services import notifications, orders
 from print3d_core.orders import CUSTOMER_LABELS, OrderStatus
 from print3d_notify import Button, NotifyProvider, OutboundMessage
 from print3d_notify import commands as owner_commands
+from print3d_notify.meta import REENGAGEMENT_ERROR, DeliveryStatus
 from print3d_notify.meta import InboundMessage as Inbound
 
 log = logging.getLogger("print3d.whatsapp")
@@ -61,6 +62,7 @@ async def dispatch_pending(session: AsyncSession, provider: NotifyProvider, limi
             body=note.body,
             media_url=payload.get("media_url"),
             buttons=[Button(**b) for b in payload.get("buttons") or []],
+            force_template=bool(payload.get("force_template")),
         )
         note.attempts += 1
         try:
@@ -77,6 +79,45 @@ async def dispatch_pending(session: AsyncSession, provider: NotifyProvider, limi
             sent += 1
     await session.commit()
     return sent
+
+
+# --- Recibos de entrega ---------------------------------------------------------------------
+async def handle_status(
+    session: AsyncSession, receipt: DeliveryStatus, template_ready: bool
+) -> str:
+    """Atualiza o aviso pelo recibo da Meta. Janela de 24 h fechada (131047): volta para a
+    fila para sair pelo template aprovado (uma vez só)."""
+    note = await session.scalar(
+        select(Notification).where(Notification.provider_message_id == receipt.message_id)
+    )
+    if note is None:
+        return "desconhecida"
+    if receipt.status in ("delivered", "read"):
+        note.status = "entregue" if receipt.status == "delivered" else "lido"
+        note.last_error = None
+    elif receipt.status == "failed":
+        error = f"{receipt.error_code or ''} {receipt.error_title}".strip()
+        payload = dict(note.payload or {})
+        if (
+            receipt.error_code == REENGAGEMENT_ERROR
+            and template_ready
+            and not payload.get("force_template")
+        ):
+            payload["force_template"] = True
+            note.payload = payload
+            note.status, note.attempts = "pendente", 0
+            note.last_error = f"{error} — reenviando pelo template"
+        else:
+            note.status = "falhou"
+            note.last_error = (
+                f"{error} — fora da janela de 24 h: cadastre o template aprovado em Integrações"
+                if receipt.error_code == REENGAGEMENT_ERROR
+                else error
+            )[:500]
+    else:
+        return "ignorada"
+    await session.commit()
+    return note.status
 
 
 # --- Recebimento ----------------------------------------------------------------------------

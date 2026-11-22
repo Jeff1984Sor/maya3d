@@ -82,6 +82,8 @@ class OrderItemOut(BaseModel):
     material_ids: list[int]
     needs_sample: bool
     produced: int
+    # o que imprimir: foto, arquivos 3D (chaves do armazenamento), peças do kit, paramétrico
+    production: dict[str, Any] | None = None
 
 
 class OrderEventOut(BaseModel):
@@ -118,6 +120,7 @@ class OrderSummary(BaseModel):
     local_delivery: bool
     created_at: datetime
     progress: str = ""  # "7 de 25 impressas"
+    items_summary: str = ""  # "1x Enfeite de Natal...; 2x Vaso..."
     next_step: str | None = None
 
 
@@ -135,6 +138,8 @@ class OrderDetail(OrderSummary):
     jobs: list[PrintJobOut]
     allowed: list[str]
     customer: CustomerOut | None = None
+    # avisos deste pedido (WhatsApp do dono etc.): mostra se saiu ou o erro
+    notifications: list[dict[str, Any]] = []
 
 
 class QueueGroup(BaseModel):

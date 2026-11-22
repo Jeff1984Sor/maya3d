@@ -14,7 +14,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from print3d_api.db.session import get_session
 from print3d_api.services import integrations, mercadolivre, payments, shopee, whatsapp
 from print3d_channels.mercadopago import verify_signature as verify_mp_signature
-from print3d_notify.meta import WhatsAppSettings, parse_webhook, verify_signature
+from print3d_notify.meta import (
+    WhatsAppSettings,
+    parse_statuses,
+    parse_webhook,
+    verify_signature,
+)
 
 log = logging.getLogger("print3d.webhooks")
 router = APIRouter(prefix="/v1/webhooks", tags=["webhooks"])
@@ -63,9 +68,17 @@ async def whatsapp_events(request: Request, session: Session, wa: WA) -> dict[st
         except Exception:  # uma mensagem ruim não derruba as outras; a Meta reenviaria tudo
             await session.rollback()
             log.exception("falha ao tratar mensagem", extra={"wamid": msg.message_id})
-    # respostas saem na hora (sem esperar o ciclo do despachante)
+    retry = False
+    for receipt in parse_statuses(payload):
+        try:
+            result = await whatsapp.handle_status(session, receipt, bool(wa.template_status))
+            retry = retry or result == "pendente"
+        except Exception:
+            await session.rollback()
+            log.exception("falha ao tratar recibo", extra={"wamid": receipt.message_id})
+    # respostas (e reenvios pelo template) saem na hora, sem esperar o ciclo do despachante
     kick = getattr(request.app.state, "dispatch_now", None)
-    if handled and kick is not None:
+    if (handled or retry) and kick is not None:
         kick.set()
     return {"received": handled}
 

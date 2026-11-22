@@ -15,6 +15,7 @@ from print3d_notify.meta import (
     WhatsAppError,
     WhatsAppSettings,
     build_payload,
+    parse_statuses,
     parse_webhook,
     verify_signature,
 )
@@ -99,6 +100,42 @@ async def test_erro_sem_template_propaga() -> None:
     )
     with pytest.raises(WhatsAppError):
         await provider.send(OutboundMessage(to="1", body="oi"))
+
+
+async def test_template_forcado_vai_direto() -> None:
+    seen: list[dict[str, Any]] = []
+    provider = MetaWhatsAppProvider(SETTINGS, _client([_ok("wamid.f")], seen))
+    message = OutboundMessage(to="5515", body="Nova venda", force_template=True)
+    assert await provider.send(message) == "wamid.f"
+    assert len(seen) == 1
+    assert seen[0]["json"]["type"] == "template"
+
+
+def test_le_recibos() -> None:
+    payload = {
+        "entry": [
+            {
+                "changes": [
+                    {
+                        "value": {
+                            "statuses": [
+                                {"id": "wamid.a", "status": "delivered"},
+                                {
+                                    "id": "wamid.b",
+                                    "status": "failed",
+                                    "errors": [{"code": 131047, "title": "Re-engagement message"}],
+                                },
+                            ]
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+    a, b = parse_statuses(payload)
+    assert (a.message_id, a.status, a.error_code) == ("wamid.a", "delivered", None)
+    assert (b.status, b.error_code, b.error_title) == ("failed", 131047, "Re-engagement message")
+    assert parse_webhook(payload) == []
 
 
 def test_nao_configurado() -> None:

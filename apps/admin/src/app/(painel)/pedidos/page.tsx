@@ -49,6 +49,7 @@ export default async function PedidosPage({ searchParams }: { searchParams: Prom
                       #{o.number}
                     </Link>
                     <span className="block text-xs text-muted">{new Date(o.created_at).toLocaleString("pt-BR")}</span>
+                    {o.items_summary && <span className="block max-w-md text-xs">{o.items_summary}</span>}
                   </td>
                   <td className="px-4 py-3">{o.channel}</td>
                   <td className="px-4 py-3">

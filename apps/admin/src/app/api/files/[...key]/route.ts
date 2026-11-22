@@ -9,11 +9,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ key: st
     return new Response("não autenticado", { status: 401 });
   }
   const { key } = await params;
-  if (key.some((part) => !/^[A-Za-z0-9._-]+$/.test(part) || part === "." || part === "..")) {
+  // nomes do acervo podem ter espaço e acento; barras, controle e "." / ".." nunca
+  if (key.some((part) => !part || /[\\/\u0000-\u001f]/.test(part) || part === "." || part === "..")) {
     return new Response("caminho inválido", { status: 400 });
   }
   const base = process.env.API_INTERNAL_URL ?? "http://localhost:8000";
-  const upstream = await fetch(`${base}/v1/admin/files/${key.join("/")}`, {
+  const upstream = await fetch(`${base}/v1/admin/files/${key.map(encodeURIComponent).join("/")}`, {
     headers: { "x-admin-token": process.env.ADMIN_API_TOKEN ?? "" },
     cache: "no-store",
   });

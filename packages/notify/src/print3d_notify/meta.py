@@ -121,6 +121,11 @@ class MetaWhatsAppProvider:
 
     async def send(self, message: OutboundMessage) -> str:
         """Tenta a mensagem livre; se a janela de 24 h estiver fechada, usa o template."""
+        if message.force_template and self._s.template_status:
+            template = message.template or self._s.template_status
+            return await self._post(
+                build_template_payload(message, template, self._s.template_lang)
+            )
         try:
             return await self._post(build_payload(message))
         except WhatsAppError as exc:
@@ -150,6 +155,40 @@ class InboundMessage:
     button_id: str | None = None
     context_id: str | None = None  # mensagem nossa que foi respondida (botões)
     media_id: str | None = None
+
+
+@dataclass(frozen=True)
+class DeliveryStatus:
+    """Recibo de uma mensagem nossa: sent | delivered | read | failed (com o erro)."""
+
+    message_id: str
+    status: str
+    error_code: int | None = None
+    error_title: str = ""
+
+
+def parse_statuses(payload: dict[str, Any]) -> list[DeliveryStatus]:
+    """A Meta aceita o envio (200) e só depois avisa, pelo webhook, se falhou — ex.: 131047,
+    janela de 24 h fechada."""
+    out: list[DeliveryStatus] = []
+    for entry in payload.get("entry", []):
+        for change in entry.get("changes", []):
+            for st in change.get("value", {}).get("statuses", []) or []:
+                errors = st.get("errors") or [{}]
+                code = errors[0].get("code")
+                out.append(
+                    DeliveryStatus(
+                        message_id=str(st.get("id", "")),
+                        status=str(st.get("status", "")),
+                        error_code=int(code)
+                        if isinstance(code, int | str) and str(code).isdigit()
+                        else None,
+                        error_title=str(errors[0].get("title") or errors[0].get("message") or "")[
+                            :300
+                        ],
+                    )
+                )
+    return out
 
 
 def parse_webhook(payload: dict[str, Any]) -> list[InboundMessage]:

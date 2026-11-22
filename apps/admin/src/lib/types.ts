@@ -153,7 +153,24 @@ export interface OrderSummary {
   local_delivery: boolean;
   created_at: string;
   progress: string;
+  items_summary?: string;
   next_step: string | null;
+}
+
+export interface ProductionFile {
+  name: string;
+  key: string;
+}
+
+/** O que imprimir num item: foto, arquivos 3D, peças do kit ou gerador paramétrico. */
+export interface ItemProduction {
+  product_id: number;
+  product_title: string;
+  size_label: string | null;
+  image: string | null;
+  parametric: string | null;
+  files: ProductionFile[];
+  kit: { title: string; quantity: number; product_id: number | null; files: ProductionFile[] }[];
 }
 
 export interface OrderItem {
@@ -166,6 +183,7 @@ export interface OrderItem {
   material_ids: number[];
   needs_sample: boolean;
   produced: number;
+  production?: ItemProduction | null;
 }
 
 export interface PrintJob {
@@ -190,6 +208,7 @@ export interface OrderDetail extends OrderSummary {
   jobs: PrintJob[];
   allowed: string[];
   customer: { id: number; name: string; whatsapp: string | null } | null;
+  notifications?: { created_at: string; audience: string; template: string; status: string; attempts: number; last_error: string | null }[];
 }
 
 export interface QueueGroup {
