@@ -153,9 +153,16 @@ export function Footer({
   );
 }
 
-/** wa.me só com dígitos (o número vem do painel → Marca). */
+/** wa.me exige DDI + DDD + número só com dígitos (o número vem do painel → Marca).
+ *  "011 97324-5170" / "11973245170" viram 5511973245170; quem já pôs o 55 não muda. */
+export function whatsappDigits(phone: string): string {
+  let digits = phone.replace(/\D/g, "").replace(/^0+/, "");
+  if (digits.length === 10 || digits.length === 11) digits = `55${digits}`;
+  return digits;
+}
+
 export function whatsappLink(phone: string): string {
-  return `https://wa.me/${phone.replace(/\D/g, "")}`;
+  return `https://wa.me/${whatsappDigits(phone)}`;
 }
 
 /** Botão flutuante do WhatsApp; com o assistente ligado, fica acima do botão dele. */
