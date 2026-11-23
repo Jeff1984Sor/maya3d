@@ -219,6 +219,9 @@ def main() -> None:
             if status == "erro":
                 log(f"  ⚠ erro ao processar {category}: {cols[cslug].get('error')}")
                 continue
+            if status != "pronto":
+                log(f"  ⚠ {category} ainda processando no servidor: rode o robô de novo depois")
+                continue
             state["processed"].append(category)
             save()
 
