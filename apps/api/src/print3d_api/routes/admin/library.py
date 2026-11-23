@@ -5,6 +5,8 @@ import shutil
 from typing import Annotated, Any
 
 from arq.connections import ArqRedis
+from arq.constants import result_key_prefix
+from arq.jobs import Job, JobStatus
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
@@ -20,6 +22,7 @@ from print3d_core.storage import LocalStorage
 router = APIRouter(prefix="/library", tags=["admin: biblioteca"])
 Session = Annotated[AsyncSession, Depends(get_session)]
 Storage = Annotated[LocalStorage, Depends(get_storage)]
+RUNNING = (JobStatus.queued, JobStatus.deferred, JobStatus.in_progress)
 CHUNK = 1024 * 1024
 
 
@@ -131,11 +134,17 @@ async def process(
     inbox = library.inbox_dir(storage, slug)
     if not inbox.is_dir() or not any(inbox.iterdir()):
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "envie arquivos antes")
-    if col.status == "processando":
+    job_id = f"biblioteca-{slug}"
+    # a marca "processando" do banco pode ficar velha (trabalho que morreu): vale a fila do arq
+    if await Job(job_id, redis=queue).status() in RUNNING:
         raise HTTPException(status.HTTP_409_CONFLICT, "já está processando")
+    # o arq guarda o resultado do último trabalho (keep_result) e recusaria o mesmo id em silêncio
+    await queue.delete(result_key_prefix + job_id)
     job = await queue.enqueue_job(
-        "process_library", slug, await library.bed_mm(session), _job_id=f"biblioteca-{slug}"
+        "process_library", slug, await library.bed_mm(session), _job_id=job_id
     )
+    if job is None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "já está processando")
     library.mark_processing(col)
     await session.commit()
     return {"job_id": job.job_id if job else None}

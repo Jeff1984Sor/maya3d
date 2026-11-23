@@ -15,6 +15,7 @@ export const NICHE_EMOJI: Record<string, string> = {
   infantil: "🐶",
   caixas: "📦",
   "casa-e-decoracao": "🏠",
+  pet: "🐾",
 };
 
 /** Nome bonito da categoria (vem como identificador: "dia-das-maes"). */
@@ -35,6 +36,12 @@ const CATEGORY_LABELS: Record<string, string> = {
   "infantil-e-batizado": "Infantil e batizado",
   "cruzes-e-crucifixos": "Cruzes e crucifixos",
   "stl-dos-anuncios": "Destaques",
+  alimentacao: "Alimentação",
+  "passeio-e-organizacao": "Passeio e organização",
+  "decoracao-pet": "Decoração pet",
+  "personalizados-pet": "Personalizados com nome",
+  gatos: "Para gatos",
+  "passaros-e-pequenos": "Pássaros e pequenos",
 };
 
 export function categoryLabel(slug: string): string {
