@@ -70,6 +70,20 @@ class FakeML:
     async def required_attributes(self, token: str, category_id: str) -> list[dict[str, Any]]:
         return [{"id": "BRAND", "name": "Marca"}]
 
+    async def category_attributes(self, token: str, category_id: str) -> list[dict[str, Any]]:
+        return [
+            {"id": "BRAND", "name": "Marca", "tags": {"required": True}},
+            {"id": "MATERIAL", "name": "Material", "value_type": "string", "tags": {}},
+            {"id": "ITEM_CONDITION", "name": "Condição", "tags": {"hidden": True}},
+            {
+                "id": "EMPTY_GTIN_REASON",
+                "name": "Motivo de GTIN vazio",
+                "value_type": "list",
+                "values": [{"id": "17055160", "name": "O produto não tem código cadastrado"}],
+                "tags": {"conditional_required": True},
+            },
+        ]
+
     async def create_item(self, token: str, item: dict[str, Any]) -> dict[str, Any]:
         if self.fail_item:
             raise MercadoLivreError("Validation error", 400, ["COLOR obrigatório"])
@@ -94,6 +108,8 @@ class FakeML:
     async def get(self, token: str, resource: str) -> dict[str, Any]:
         if resource.startswith("/items/"):
             return self.resources.get(resource, {"listing_type_id": "gold_special"})
+        if resource not in self.resources:
+            raise MercadoLivreError("not_found", 404, [])
         return self.resources[resource]
 
     async def answer(self, token: str, question_id: int, text: str) -> None:
@@ -288,6 +304,36 @@ def test_conecta_anuncia_importa_pedido_e_responde(client: TestClient, fake: Fak
     ).json()
     assert free == {"listing_id": listing["id"], "free_shipping": True}
     assert fake.updates.pop() == ("MLB999", {"shipping": {"mode": "me2", "free_shipping": True}})
+
+    fake.resources["/items/MLB999"] = {
+        "category_id": "MLB1",
+        "title": "Chaveiro",
+        "status": "active",
+        "attributes": [{"id": "BRAND", "name": "Marca", "value_name": "Loja"}],
+    }
+    ficha = client.get(
+        f"/v1/admin/mercadolivre/listings/{listing['id']}/attributes", headers=H
+    ).json()
+    assert [m["id"] for m in ficha["missing"]] == ["MATERIAL", "EMPTY_GTIN_REASON"]
+    assert ficha["missing"][1]["values"][0]["id"] == "17055160"
+    assert ficha["performance"] is None  # 404 do ML: nota ainda não calculada
+    gravado = client.put(
+        f"/v1/admin/mercadolivre/listings/{listing['id']}/attributes",
+        json={"attributes": [{"id": "MATERIAL", "value_name": "PLA"}]},
+        headers=H,
+    ).json()
+    assert gravado == {"listing_id": listing["id"], "saved": ["MATERIAL"]}
+    assert fake.updates.pop() == (
+        "MLB999",
+        {"attributes": [{"id": "MATERIAL", "value_name": "PLA"}]},
+    )
+    vazio = client.put(
+        f"/v1/admin/mercadolivre/listings/{listing['id']}/attributes",
+        json={"attributes": [{"id": "MATERIAL"}]},
+        headers=H,
+    )
+    assert vazio.status_code == 422
+    del fake.resources["/items/MLB999"]
 
     closed = client.delete(f"/v1/admin/mercadolivre/listings/{listing['id']}", headers=H).json()
     assert closed["status"] == "encerrado"

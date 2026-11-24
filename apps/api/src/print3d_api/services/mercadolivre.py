@@ -603,6 +603,104 @@ async def set_free_shipping(session: AsyncSession, listing_id: int, enabled: boo
     return saved
 
 
+SKIP_TAGS = ("hidden", "read_only", "fixed", "others", "variation_attribute")
+
+
+def _filled(attr: dict[str, Any]) -> bool:
+    return bool(attr.get("value_id") or attr.get("value_name") or attr.get("values"))
+
+
+async def _published(session: AsyncSession, listing_id: int) -> ChannelListing:
+    listing = await session.get(ChannelListing, listing_id)
+    if listing is None or listing.channel != CHANNEL:
+        raise MLError("anúncio não existe", status=404)
+    if listing.status != "publicado" or not listing.external_id:
+        raise MLError("o anúncio não está publicado", status=409)
+    return listing
+
+
+async def listing_attributes(session: AsyncSession, listing_id: int) -> dict[str, Any]:
+    """Ficha técnica do anúncio: o que está preenchido, o que falta e a nota de qualidade do ML."""
+    listing = await _published(session, listing_id)
+    token = await access_token(session)
+    ml = await client(session)
+    item_id = str(listing.external_id)
+    try:
+        item = await ml.get(token, f"/items/{item_id}")
+        category = str(item.get("category_id") or listing.category_id)
+        catalog = await ml.category_attributes(token, category)
+    except MercadoLivreError as exc:
+        raise MLError(f"o Mercado Livre não devolveu a ficha: {exc}") from exc
+    try:
+        performance: dict[str, Any] | None = await ml.get(token, f"/item/{item_id}/performance")
+    except MercadoLivreError:
+        performance = None  # o ML ainda não calculou (404) ou não expõe para a categoria
+    current = {str(a.get("id")): a for a in item.get("attributes") or []}
+    missing = []
+    for a in catalog:
+        tags = a.get("tags") or {}
+        if any(tags.get(t) for t in SKIP_TAGS) or _filled(current.get(str(a.get("id")), {})):
+            continue
+        missing.append(
+            {
+                "id": a.get("id"),
+                "name": a.get("name"),
+                "value_type": a.get("value_type"),
+                "required": bool(tags.get("required") or tags.get("catalog_required")),
+                "relevance": a.get("relevance"),
+                "values": [
+                    {"id": v.get("id"), "name": v.get("name")} for v in (a.get("values") or [])[:80]
+                ],
+                "allowed_units": [u.get("id") for u in a.get("allowed_units") or []],
+                "default_unit": a.get("default_unit"),
+                "hint": a.get("hint") or a.get("tooltip"),
+            }
+        )
+    return {
+        "listing_id": listing.id,
+        "external_id": item_id,
+        "product_id": listing.product_id,
+        "variant_id": listing.variant_id,
+        "category_id": category,
+        "title": item.get("title"),
+        "status": item.get("status"),
+        "filled": [
+            {"id": k, "name": a.get("name"), "value": a.get("value_name")}
+            for k, a in current.items()
+            if _filled(a)
+        ],
+        "missing": missing,
+        "performance": performance,
+    }
+
+
+async def set_listing_attributes(
+    session: AsyncSession, listing_id: int, attributes: list[dict[str, Any]]
+) -> list[str]:
+    """Grava atributos da ficha técnica (o ML mantém os que não vieram). Devolve os ids gravados."""
+    listing = await _published(session, listing_id)
+    token = await access_token(session)
+    ml = await client(session)
+    try:
+        item = await ml.update_item(token, str(listing.external_id), {"attributes": attributes})
+    except MercadoLivreError as exc:
+        raise MLError(
+            "; ".join([f"o Mercado Livre recusou a ficha técnica: {exc}", *exc.cause])
+        ) from exc
+    sent = {str(a["id"]) for a in attributes}
+    saved = [str(a.get("id")) for a in item.get("attributes") or [] if str(a.get("id")) in sent]
+    await audit.record(
+        session,
+        actor="admin",
+        action="ml_ficha_tecnica",
+        entity_type="product",
+        entity_id=listing.product_id,
+        payload={"anuncio": listing.external_id, "atributos": attributes},
+    )
+    await session.commit()
+    return saved
+
+
 async def close_listing(session: AsyncSession, listing_id: int) -> ChannelListing:
     """Encerra o anúncio no ML e o apaga da lista do vendedor (não tem volta).
 

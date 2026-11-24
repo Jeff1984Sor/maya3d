@@ -170,8 +170,13 @@ class MercadoLivre:
             first["category_id"], first.get("category_name", ""), first.get("domain_id")
         )
 
-    async def required_attributes(self, token: str, category_id: str) -> list[dict[str, Any]]:
+    async def category_attributes(self, token: str, category_id: str) -> list[dict[str, Any]]:
+        """Todos os atributos da categoria (ficha técnica), com tags required/hidden/read_only."""
         data = await self._request("GET", f"/categories/{category_id}/attributes", token=token)
+        return list(data or [])
+
+    async def required_attributes(self, token: str, category_id: str) -> list[dict[str, Any]]:
+        data = await self.category_attributes(token, category_id)
         return [
             a
             for a in data

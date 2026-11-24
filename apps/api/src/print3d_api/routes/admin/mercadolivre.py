@@ -216,6 +216,43 @@ async def free_shipping(
     return FreeShippingOut(listing_id=listing_id, free_shipping=saved)
 
 
+class AttributeIn(BaseModel):
+    id: str = Field(pattern=r"^[A-Z0-9_]{2,60}$")
+    value_id: str | None = Field(default=None, max_length=40)
+    value_name: str | None = Field(default=None, max_length=255)
+
+
+class AttributesIn(BaseModel):
+    attributes: list[AttributeIn] = Field(min_length=1, max_length=60)
+
+
+class AttributesOut(BaseModel):
+    listing_id: int
+    saved: list[str]  # ids que o Mercado Livre devolveu gravados
+
+
+@router.get("/listings/{listing_id}/attributes")
+async def get_attributes(listing_id: int, session: Session) -> dict[str, Any]:
+    """Ficha técnica do anúncio: preenchidos, faltando (com valores aceitos) e nota do ML."""
+    try:
+        return await ml.listing_attributes(session, listing_id)
+    except ERRORS as exc:
+        raise _http(exc) from exc
+
+
+@router.put("/listings/{listing_id}/attributes", response_model=AttributesOut)
+async def put_attributes(listing_id: int, payload: AttributesIn, session: Session) -> AttributesOut:
+    """Preenche atributos da ficha técnica (os que não vierem ficam como estão)."""
+    attrs = [a.model_dump(exclude_none=True) for a in payload.attributes]
+    if any("value_id" not in a and "value_name" not in a for a in attrs):
+        raise HTTPException(422, "cada atributo precisa de value_id ou value_name")
+    try:
+        saved = await ml.set_listing_attributes(session, listing_id, attrs)
+    except ERRORS as exc:
+        raise _http(exc) from exc
+    return AttributesOut(listing_id=listing_id, saved=saved)
+
+
 @router.delete("/listings/{listing_id}", response_model=ListingOut)
 async def close(listing_id: int, session: Session) -> ChannelListing:
     """Encerra e apaga o anúncio no Mercado Livre (ação sem volta)."""
