@@ -664,6 +664,10 @@ async def listing_attributes(session: AsyncSession, listing_id: int) -> dict[str
         "category_id": category,
         "title": item.get("title"),
         "status": item.get("status"),
+        # por que está pausado/encerrado (ex.: out_of_stock, moderation_penalty, deleted)
+        "sub_status": item.get("sub_status") or [],
+        "tags": item.get("tags") or [],
+        "health": item.get("health"),
         "filled": [
             {"id": k, "name": a.get("name"), "value": a.get("value_name")}
             for k, a in current.items()
