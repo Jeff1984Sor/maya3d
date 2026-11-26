@@ -94,6 +94,11 @@ def ambiente(values: dict[str, str]) -> int:
     return 1 if values.get("FISCAL_AMBIENTE") == "producao" else 2
 
 
+async def current_ambiente(session: AsyncSession) -> int:
+    """1 = produção, 2 = homologação (teste)."""
+    return ambiente(await _values(session))
+
+
 def serie(values: dict[str, str]) -> int:
     raw = values.get("FISCAL_SERIE", "")
     return int(raw) if raw.isdigit() else 1

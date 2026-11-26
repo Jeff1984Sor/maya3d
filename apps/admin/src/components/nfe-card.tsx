@@ -35,7 +35,7 @@ type Invoice = {
   email_status: string | null;
 };
 
-type OrderNfe = { invoices: Invoice[]; prefill: { recipient: Recipient; missing: string[]; note: string | null } };
+type OrderNfe = { ambiente?: number; invoices: Invoice[]; prefill: { recipient: Recipient; missing: string[]; note: string | null } };
 
 const TONE: Record<string, "ok" | "danger" | "warn" | "muted"> = {
   autorizada: "ok",
@@ -73,8 +73,10 @@ export async function NfeCard({ orderId, orderStatus }: { orderId: number; order
     );
   }
   const back = `/pedidos/${orderId}`;
-  const done = data.invoices.find((i) => i.status === "autorizada");
-  const pending = data.invoices.find((i) => i.status === "sem_resposta" || i.status === "processando");
+  // nota de teste (homologação) não impede a nota real: só conta o ambiente atual
+  const current = data.invoices.filter((i) => data.ambiente === undefined || i.ambiente === data.ambiente);
+  const done = current.find((i) => i.status === "autorizada");
+  const pending = current.find((i) => i.status === "sem_resposta" || i.status === "processando");
   const canEmit = !done && !pending && orderStatus !== "aguardando_pagamento" && orderStatus !== "cancelado";
   const r = data.prefill.recipient;
 
@@ -122,7 +124,7 @@ export async function NfeCard({ orderId, orderStatus }: { orderId: number; order
                     </Button>
                   </form>
                 )}
-                {i.status === "autorizada" && (
+                {i.status === "autorizada" && i.ambiente === 1 && (
                   <form action={resendNfe.bind(null, i.id, back)}>
                     <Button variant="secondary" className="px-2 py-1 text-xs">
                       Reenviar ao ML e por e-mail
@@ -165,7 +167,7 @@ export async function NfeCard({ orderId, orderStatus }: { orderId: number; order
             ))}
           </div>
           {data.prefill.missing.length > 0 && <p className="text-xs text-primary">Falta: {data.prefill.missing.join(", ")}</p>}
-          <Button type="submit">{data.invoices.some((i) => i.status === "rejeitada") ? "Corrigir e emitir de novo" : "Emitir NF-e"}</Button>
+          <Button type="submit">{current.some((i) => i.status === "rejeitada") ? "Corrigir e emitir de novo" : "Emitir NF-e"}</Button>
         </form>
       ) : (
         !done &&

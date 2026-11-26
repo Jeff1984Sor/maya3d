@@ -109,6 +109,7 @@ async def order_nfe(order_id: int, session: Session, cep: Cep) -> dict[str, Any]
         raise HTTPException(404, "pedido não existe")
     invoices = await fiscal.list_for_order(session, order_id)
     return {
+        "ambiente": await fiscal.current_ambiente(session),
         "invoices": [InvoiceOut.model_validate(i).model_dump(mode="json") for i in invoices],
         "prefill": await fiscal.prefill(session, order, cep),
     }
