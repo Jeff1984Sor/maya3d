@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { advanceOrder } from "@/actions/orders";
 import { ConfirmSubmit } from "@/components/confirm-submit";
 import { Flash } from "@/components/flash";
+import { NfeCard } from "@/components/nfe-card";
 import { Badge, Button, Card, Label, PageHeader, inputClass } from "@/components/ui";
 import { AdminApiError, api } from "@/lib/admin-api";
 import { formatMoney } from "@/lib/form";
@@ -160,6 +161,8 @@ export default async function PedidoPage({
             </table>
             <p className="mt-3 text-right font-semibold">Total {formatMoney(order.total)}</p>
           </Card>
+
+          <NfeCard orderId={id} orderStatus={order.status} />
 
           <Card title="Impressões">
             <ul className="space-y-1 text-sm">

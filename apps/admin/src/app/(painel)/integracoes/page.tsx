@@ -53,6 +53,18 @@ const GROUPS = [
     next: { href: "/operacao", label: "CEP de origem →" },
   },
   {
+    id: "notafiscal",
+    title: "Nota fiscal (NF-e própria)",
+    help: "Dados da empresa como estão no Cadesp/CCMEI e as regras da nota (confirme CFOP, NCM e CSOSN com o contador). O certificado A1 e a senha são enviados na tela Nota fiscal.",
+    next: { href: "/nota-fiscal", label: "certificado e situação →" },
+  },
+  {
+    id: "email",
+    title: "E-mail (avisos para você)",
+    help: "Quando uma nota é autorizada, você recebe por e-mail o XML e o link da etiqueta de envio do Mercado Livre. No Gmail: smtp.gmail.com, porta 465, ssl, e uma senha de app (não a senha normal).",
+    next: { href: "/nota-fiscal", label: "nota fiscal →" },
+  },
+  {
     id: "foto3d",
     title: "Foto vira objeto 3D (Meshy)",
     help: "Gera uma peça 3D de verdade a partir de uma foto. Crie a conta em meshy.ai (a API precisa do plano Pro), gere a chave em API e cole aqui. Cada peça gasta créditos da Meshy (5 a 20).",
@@ -100,10 +112,11 @@ export default async function IntegracoesPage({ searchParams }: { searchParams: 
       <Flash {...await searchParams} />
       <div className="space-y-6">
         {GROUPS.map((g) => {
-          const group = fields.filter((f) => f.group === g.id);
+          // certificado A1 e senha têm tela própria (upload do arquivo em Nota fiscal)
+          const group = fields.filter((f) => f.group === g.id && !f.key.startsWith("FISCAL_CERT"));
           const keys = group.map((f) => f.key);
           return (
-            <Card key={g.id} title={g.title}>
+            <Card key={g.id} title={<span id={g.id}>{g.title}</span>}>
               <p className="mb-4 text-sm text-muted">
                 {g.help}{" "}
                 <Link href={g.next.href} className="text-secondary hover:underline">

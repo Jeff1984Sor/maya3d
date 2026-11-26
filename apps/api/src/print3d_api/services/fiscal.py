@@ -272,9 +272,8 @@ async def _complete_address(r: Recipient, cep: CepProvider) -> Recipient:
         a = await cep.lookup(r.cep)
     except CepError:
         return r
-    r.cod_municipio = r.cod_municipio or a.ibge
-    r.municipio = r.municipio or a.city
-    r.uf = r.uf or a.uf
+    # cidade/UF/código IBGE sempre do CEP (evita código de uma cidade com nome de outra)
+    r.cod_municipio, r.municipio, r.uf = a.ibge, a.city, a.uf
     r.bairro = r.bairro or a.district
     r.logradouro = r.logradouro or a.street
     return r

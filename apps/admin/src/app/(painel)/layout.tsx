@@ -29,6 +29,7 @@ const GROUPS: NavGroup[] = [
     icon: "🛒",
     items: [
       { href: "/pedidos", label: "Pedidos" },
+      { href: "/nota-fiscal", label: "Nota fiscal" },
       { href: "/mercado-livre", label: "Mercado Livre" },
       { href: "/shopee", label: "Shopee" },
       { href: "/mensagens", label: "Caixa de saída (WhatsApp)" },
