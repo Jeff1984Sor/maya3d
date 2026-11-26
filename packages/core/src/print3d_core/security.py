@@ -25,9 +25,10 @@ class TokenVault:
     def encrypt(self, plaintext: str) -> str:
         return self._fernet.encrypt(plaintext.encode()).decode()
 
-    def decrypt(self, token: str) -> str:
+    def decrypt(self, token: str, ttl: int | None = None) -> str:
+        """`ttl` (segundos): recusa token mais velho que isso (links com validade)."""
         try:
-            return self._fernet.decrypt(token.encode()).decode()
+            return self._fernet.decrypt(token.encode(), ttl=ttl).decode()
         except InvalidToken as exc:
             raise TokenVaultError(
                 "token não pôde ser decifrado (chave errada ou dado corrompido)"

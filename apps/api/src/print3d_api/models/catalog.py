@@ -56,6 +56,8 @@ class Product(IdMixin, TimestampMixin, Base):
     guardian_reason: Mapped[str | None] = mapped_column(Text)
     disclaimers: Mapped[list[str]] = mapped_column(JSONB, default=list)
     attribution_required: Mapped[bool] = mapped_column(Boolean, default=False)
+    # NCM da nota fiscal (8 dígitos); vazio = o padrão de Integrações → Nota fiscal
+    ncm: Mapped[str | None] = mapped_column(String(8))
 
 
 class Variant(IdMixin, TimestampMixin, Base):

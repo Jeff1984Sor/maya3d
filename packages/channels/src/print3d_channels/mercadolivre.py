@@ -251,6 +251,65 @@ class MercadoLivre:
             "POST", "/answers", token=token, json={"question_id": question_id, "text": text}
         )
 
+    # --- Nota fiscal e etiqueta --------------------------------------------------------------
+    async def billing_info(self, token: str, order: dict[str, Any]) -> dict[str, Any]:
+        """Dados fiscais do comprador (CPF/CNPJ, nome, endereço). Fluxo atual:
+        /orders/billing-info/MLB/{billing_info.id}; antigo: /orders/{id}/billing_info (x-version 2).
+        """
+        billing_id = ((order.get("buyer") or {}).get("billing_info") or {}).get("id")
+        if billing_id:
+            try:
+                data: dict[str, Any] = await self._request(
+                    "GET", f"/orders/billing-info/{SITE}/{billing_id}", token=token
+                )
+                return data
+            except MercadoLivreError as exc:
+                if exc.status not in (400, 404):
+                    raise
+        legacy: dict[str, Any] = await self._request(
+            "GET", f"/orders/{order['id']}/billing_info", token=token, headers={"x-version": "2"}
+        )
+        return legacy
+
+    async def upload_fiscal_document(
+        self, token: str, pack_id: str, xml: bytes, filename: str
+    ) -> dict[str, Any]:
+        """Anexa o XML da NF-e à venda (pack; sem pack, o id do pedido)."""
+        data: dict[str, Any] = await self._request(
+            "POST",
+            f"/packs/{pack_id}/fiscal_documents",
+            token=token,
+            files={"fiscal_document": (filename, xml, "application/xml")},
+        )
+        return data
+
+    async def shipment_label_pdf(self, token: str, shipment_id: str) -> bytes:
+        """Etiqueta de envio em PDF (só existe com o envio em ready_to_ship)."""
+        client = self._client or httpx.AsyncClient(timeout=30)
+        try:
+            res = await client.get(
+                f"{API}/shipment_labels",
+                params={"shipment_ids": shipment_id, "response_type": "pdf"},
+                headers={"Authorization": f"Bearer {token}"},
+            )
+        except httpx.HTTPError as exc:
+            raise MercadoLivreError(f"Mercado Livre fora do ar: {type(exc).__name__}") from exc
+        finally:
+            if self._client is None:
+                await client.aclose()
+        if res.status_code >= 400 or not res.content.startswith(b"%PDF"):
+            try:
+                body = res.json()
+            except ValueError:
+                body = {}
+            message = body.get("message") if isinstance(body, dict) else None
+            raise MercadoLivreError(
+                str(message or f"etiqueta indisponível ({res.status_code})"),
+                res.status_code,
+                _causes(body),
+            )
+        return res.content
+
 
 def free_shipping_change(enabled: bool) -> dict[str, Any]:
     """Corpo de PUT /items/{id} que liga/desliga o frete grátis (Mercado Envios)."""

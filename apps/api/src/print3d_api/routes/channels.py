@@ -4,12 +4,13 @@ from html import escape
 from typing import Annotated
 
 from arq.connections import ArqRedis
-from fastapi import APIRouter, Depends, Query
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, Depends, Path, Query
+from fastapi.responses import HTMLResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from print3d_api.db.session import get_session
 from print3d_api.deps import get_queue
+from print3d_api.services import fiscal
 from print3d_api.services import mercadolivre as ml
 from print3d_api.services import shopee as sp
 from print3d_channels.mercadolivre import MercadoLivreError
@@ -59,3 +60,30 @@ async def shopee_callback(
     except (sp.ShopeeServiceError, ShopeeError) as exc:
         return _page("Não deu para conectar", str(exc), 400)
     return _page("Shopee conectada ✅", f"Loja {name}. Pode fechar esta aba.")
+
+
+@router.get("/etiqueta/{token}", response_model=None)
+async def label(
+    session: Annotated[AsyncSession, Depends(get_session)],
+    token: Annotated[str, Path(min_length=20, max_length=400)],
+) -> Response:
+    """Link do e-mail da nota: etiqueta de envio do ML em PDF (token cifrado, vale 30 dias)."""
+    order_id = fiscal.order_from_label_token(token)
+    if order_id is None:
+        return _page("Link expirado", "Peça o reenvio pelo painel (pedido → Nota fiscal).", 404)
+    try:
+        pdf = await fiscal.label_pdf(session, order_id)
+    except fiscal.FiscalError as exc:
+        return _page(
+            "Etiqueta ainda não disponível",
+            f"{exc}. O ML libera a etiqueta alguns minutos depois de receber a nota.",
+            exc.status,
+        )
+    return Response(
+        pdf,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'inline; filename="etiqueta-{order_id}.pdf"',
+            "Cache-Control": "no-store",
+        },
+    )
