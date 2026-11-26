@@ -4,6 +4,7 @@ import asyncio
 import smtplib
 import socket
 import ssl
+import time
 from dataclasses import dataclass
 from email.message import EmailMessage
 
@@ -56,17 +57,38 @@ class Attachment:
     mime: str  # ex.: application/xml
 
 
-def _send_sync(cfg: SmtpSettings, msg: EmailMessage) -> None:
+# Nome fixo no EHLO: dentro do container, socket.getfqdn() pode travar no DNS reverso e o
+# servidor SMTP derruba a conexão antes de o cliente se apresentar.
+EHLO_NAME = "localhost"
+
+
+def _send_sync(cfg: SmtpSettings, msg: EmailMessage, steps: list[str] | None = None) -> None:
+    start = time.monotonic()
+
+    def step(name: str) -> None:
+        if steps is not None:
+            steps.append(f"{name} ({time.monotonic() - start:.1f}s)")
+
     ctx = ssl.create_default_context()
+    smtp: smtplib.SMTP
     if cfg.security == "ssl":
-        with smtplib.SMTP_SSL(cfg.host, cfg.port, context=ctx, timeout=30) as smtp:
-            smtp.login(cfg.user, cfg.password)
-            smtp.send_message(msg)
-        return
-    with smtplib.SMTP(cfg.host, cfg.port, timeout=30) as smtp:
-        smtp.starttls(context=ctx)
-        smtp.login(cfg.user, cfg.password)
+        smtp = smtplib.SMTP_SSL(
+            cfg.host, cfg.port, local_hostname=EHLO_NAME, context=ctx, timeout=30
+        )
+    else:
+        smtp = smtplib.SMTP(cfg.host, cfg.port, local_hostname=EHLO_NAME, timeout=30)
+    with smtp:
+        step("conectou")
+        smtp.ehlo()
+        step("apresentou-se")
+        if cfg.security != "ssl":
+            smtp.starttls(context=ctx)
+            smtp.ehlo()
+            step("criptografou")
+        smtp.login(cfg.user, cfg.password.replace(" ", ""))
+        step("senha aceita")
         smtp.send_message(msg)
+        step("enviado")
 
 
 def _probe_sync(host: str, port: int, security: str) -> str:
@@ -98,13 +120,20 @@ async def diagnose(session: AsyncSession) -> dict[str, str]:
     if cfg is None:
         out["envio"] = "e-mail não configurado"
         return out
+    msg = EmailMessage()
+    msg["Subject"], msg["From"] = "Teste de e-mail da loja", cfg.sender
+    msg["To"] = cfg.owner or cfg.user
+    msg.set_content("Chegou! O e-mail está funcionando.")
+    steps: list[str] = []
     try:
-        destino = await send(
-            session, subject="Teste de e-mail da loja", text="Chegou! O e-mail está funcionando."
-        )
-        out["envio"] = f"enviado para {destino}"
-    except MailError as exc:
-        out["envio"] = str(exc)
+        await asyncio.to_thread(_send_sync, cfg, msg, steps)
+        out["envio"] = f"enviado para {msg['To']}"
+    except (OSError, smtplib.SMTPException) as exc:
+        out["envio"] = f"falhou: {type(exc).__name__}: {str(exc)[:200]}"
+    out["etapas"] = " → ".join(steps) or "nenhuma"
+    out["config"] = (
+        f"{cfg.host}:{cfg.port} {cfg.security}, senha com {len(cfg.password)} caracteres"
+    )
     return out
 
 
