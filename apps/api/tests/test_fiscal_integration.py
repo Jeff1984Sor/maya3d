@@ -391,9 +391,29 @@ def test_nfe_do_ml_com_rejeicao_e_sem_resposta(
     # homologação: nome do destinatário trocado pela regra da SEFAZ
     assert "NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO" in xml
 
-    assert fake_ml.uploads[0][0] == "5001"  # sem pack: id do pedido
+    # homologação: a nota de teste não vai para a venda real no ML
+    assert fake_ml.uploads == []
+    assert "teste" in done["ml_status"]
+
+    # em produção o XML vai para a venda (sem pack: o id do pedido)
+    client.put(
+        "/v1/admin/integrations", json={"values": {"FISCAL_AMBIENTE": "producao"}}, headers=H
+    )
+    prod = client.post(
+        "/v1/admin/orders",
+        json={
+            "channel": "mercadolivre",
+            "external_id": "5001",
+            "items": [{"title": "Imagem de Nossa Senhora", "quantity": 1, "unit_price": "25.90"}],
+        },
+        headers=H,
+    ).json()
+    real = client.post(f"/v1/admin/orders/{prod['id']}/nfe", json={}, headers=H).json()
+    assert real["status"] == "autorizada"
+    assert real["ambiente"] == 1
+    assert fake_ml.uploads[0][0] == "5001"
     assert fake_ml.uploads[0][2].endswith(".xml")
-    assert "anexado" in done["ml_status"]
+    assert "anexado" in real["ml_status"]
 
     token = fiscal.label_token(oid)
     pdf = client.get(f"/v1/channels/etiqueta/{token}")

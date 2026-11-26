@@ -699,7 +699,11 @@ async def after_authorized(session: AsyncSession, inv: FiscalInvoice, order: Ord
     em ml_status/email_status e o dono pode repetir pelo painel."""
     xml = (inv.proc_xml or "").encode("utf-8")
     filename = f"NFe{inv.chave}.xml"
-    if order.channel == ml.CHANNEL and order.external_id:
+    if order.channel == ml.CHANNEL and order.external_id and inv.ambiente != 1:
+        # nota de teste (homologação) nunca vai para a venda real no ML
+        inv.ml_status = "nota de teste: XML não enviado ao Mercado Livre"
+        await session.commit()
+    elif order.channel == ml.CHANNEL and order.external_id:
         try:
             data = await _ml_order(session, order)
             pack = str(data.get("pack_id") or order.external_id)
