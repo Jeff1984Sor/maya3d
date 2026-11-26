@@ -12,6 +12,7 @@ members = [
     "print3d-api",
     "print3d-channels",
     "print3d-core",
+    "print3d-fiscal",
     "print3d-mesh",
     "print3d-notify",
     "print3d-social",
@@ -1454,6 +1455,7 @@ dependencies = [
     { name = "print3d-ai" },
     { name = "print3d-channels" },
     { name = "print3d-core" },
+    { name = "print3d-fiscal" },
     { name = "print3d-mesh" },
     { name = "print3d-notify" },
     { name = "psycopg", extra = ["binary"] },
@@ -1476,6 +1478,7 @@ requires-dist = [
     { name = "print3d-ai", editable = "packages/ai" },
     { name = "print3d-channels", editable = "packages/channels" },
     { name = "print3d-core", editable = "packages/core" },
+    { name = "print3d-fiscal", editable = "packages/fiscal" },
     { name = "print3d-mesh", editable = "packages/mesh" },
     { name = "print3d-notify", editable = "packages/notify" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },
@@ -1514,6 +1517,21 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [{ name = "cryptography", specifier = ">=44.0" }]
+
+[[package]]
+name = "print3d-fiscal"
+version = "0.1.0"
+source = { editable = "packages/fiscal" }
+dependencies = [
+    { name = "cryptography" },
+    { name = "httpx" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "cryptography", specifier = ">=44.0" },
+    { name = "httpx", specifier = ">=0.28" },
+]
 
 [[package]]
 name = "print3d-mesh"

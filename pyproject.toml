@@ -24,7 +24,7 @@ package = false
 members = [
     "apps/api", "apps/worker",
     "packages/core", "packages/ai", "packages/channels",
-    "packages/notify", "packages/mesh", "packages/social",
+    "packages/notify", "packages/mesh", "packages/social", "packages/fiscal",
 ]
 
 [tool.ruff]
@@ -34,6 +34,7 @@ src = [
     "apps/api/src", "apps/worker/src",
     "packages/core/src", "packages/mesh/src", "packages/ai/src",
     "packages/channels/src", "packages/notify/src", "packages/social/src",
+    "packages/fiscal/src",
 ]
 extend-exclude = ["apps/mobile", "**/node_modules"]
 
@@ -54,6 +55,7 @@ mypy_path = [
     "apps/api/src", "apps/worker/src",
     "packages/core/src", "packages/mesh/src", "packages/ai/src",
     "packages/channels/src", "packages/notify/src", "packages/social/src",
+    "packages/fiscal/src",
 ]
 explicit_package_bases = true
 exclude = ["/migrations/", "/tests/"]
