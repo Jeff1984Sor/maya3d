@@ -2,6 +2,7 @@
 
 import asyncio
 import smtplib
+import socket
 import ssl
 from dataclasses import dataclass
 from email.message import EmailMessage
@@ -66,6 +67,45 @@ def _send_sync(cfg: SmtpSettings, msg: EmailMessage) -> None:
         smtp.starttls(context=ctx)
         smtp.login(cfg.user, cfg.password)
         smtp.send_message(msg)
+
+
+def _probe_sync(host: str, port: int, security: str) -> str:
+    """Só abre a conexão e lê a saudação do servidor (sem login)."""
+    try:
+        raw = socket.create_connection((host, port), timeout=10)
+    except OSError as exc:
+        return f"conexão falhou: {type(exc).__name__}: {exc}"
+    try:
+        sock = raw
+        if security == "ssl":
+            sock = ssl.create_default_context().wrap_socket(raw, server_hostname=host)
+        sock.settimeout(10)
+        banner = sock.recv(200).decode("utf-8", "replace").strip()
+        return f"ok: {banner[:80]}" if banner else "conectou, mas o servidor não respondeu"
+    except OSError as exc:
+        return f"conectou, mas caiu: {type(exc).__name__}: {exc}"
+    finally:
+        raw.close()
+
+
+async def diagnose(session: AsyncSession) -> dict[str, str]:
+    """Testa, do servidor, as portas do SMTP e o envio de um e-mail de teste ao dono."""
+    cfg = await settings(session)
+    host = cfg.host if cfg else "smtp.gmail.com"
+    out: dict[str, str] = {}
+    for port, sec in ((465, "ssl"), (587, "plain"), (25, "plain")):
+        out[f"porta {port}"] = await asyncio.to_thread(_probe_sync, host, port, sec)
+    if cfg is None:
+        out["envio"] = "e-mail não configurado"
+        return out
+    try:
+        destino = await send(
+            session, subject="Teste de e-mail da loja", text="Chegou! O e-mail está funcionando."
+        )
+        out["envio"] = f"enviado para {destino}"
+    except MailError as exc:
+        out["envio"] = str(exc)
+    return out
 
 
 async def send(

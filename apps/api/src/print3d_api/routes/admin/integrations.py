@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from print3d_api.db.session import get_session
-from print3d_api.services import integrations, notifications, robot, whatsapp
+from print3d_api.services import integrations, mailer, notifications, robot, whatsapp
 from print3d_notify.meta import MetaWhatsAppProvider
 
 router = APIRouter(prefix="/integrations", tags=["admin: integrações"])
@@ -69,6 +69,12 @@ async def whatsapp_test(request: Request, session: Session) -> dict[str, Any]:
 
 
 # --- Token de robô (automações do dono) ------------------------------------------------------
+@router.post("/email-test")
+async def email_test(session: Session) -> dict[str, str]:
+    """Diagnóstico do e-mail: portas do SMTP vistas do servidor + envio de teste ao dono."""
+    return await mailer.diagnose(session)
+
+
 @router.get("/robot-token")
 async def robot_status(session: Session) -> dict[str, Any]:
     return await robot.status(session)
