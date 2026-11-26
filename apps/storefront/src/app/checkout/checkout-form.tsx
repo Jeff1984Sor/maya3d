@@ -33,6 +33,7 @@ export function CheckoutForm({ subtotalPix, subtotalCard }: { subtotalPix: strin
           <input name="email" type="email" required placeholder="E-mail" className={input} />
           <input name="whatsapp" required placeholder="WhatsApp com DDD" inputMode="tel" className={input} />
         </div>
+        <input name="cpf" placeholder="CPF para a nota fiscal (opcional)" inputMode="numeric" maxLength={14} autoComplete="off" className={input} />
         <label className="flex items-start gap-2 text-sm">
           <input type="checkbox" name="whatsapp_opt_in" defaultChecked className="mt-1 accent-[var(--secondary)]" />
           Quero receber o andamento do pedido pelo WhatsApp

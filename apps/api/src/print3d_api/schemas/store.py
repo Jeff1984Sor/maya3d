@@ -1,11 +1,12 @@
 """Schemas públicos da loja: nada de custo, margem, autor de licença interno ou dados de outros
 clientes."""
 
+import re
 from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, EmailStr, Field, StringConstraints
+from pydantic import BaseModel, EmailStr, Field, StringConstraints, field_validator
 
 
 class StoreNiche(BaseModel):
@@ -122,6 +123,17 @@ class ShippingIn(BaseModel):
     cart_token: str | None = None  # com o carrinho, a cotação usa medidas e peso reais
 
 
+def cpf_valido(cpf: str) -> bool:
+    d = [int(c) for c in cpf]
+    if len(d) != 11 or len(set(d)) == 1:
+        return False
+    for n in (9, 10):
+        soma = sum(d[i] * (n + 1 - i) for i in range(n))
+        if (soma * 10 % 11) % 10 != d[n]:
+            return False
+    return True
+
+
 class CheckoutIn(BaseModel):
     cart_token: str
     name: Annotated[str, StringConstraints(min_length=2, max_length=160)]
@@ -138,6 +150,17 @@ class CheckoutIn(BaseModel):
     shipping_option: Annotated[str, StringConstraints(pattern=SHIPPING_OPTION)]
     notes: str | None = Field(default=None, max_length=500)
     payment_method: Literal["pix", "cartao"] = "pix"
+    cpf: str | None = Field(default=None, max_length=14)  # opcional: vai na nota fiscal
+
+    @field_validator("cpf")
+    @classmethod
+    def _cpf(cls, value: str | None) -> str | None:
+        digits = re.sub(r"\D", "", value or "")
+        if not digits:
+            return None
+        if not cpf_valido(digits):
+            raise ValueError("CPF inválido")
+        return digits
 
 
 class PixInstructions(BaseModel):

@@ -101,9 +101,19 @@ export async function NfeCard({ orderId, orderStatus }: { orderId: number; order
               {i.email_status && <p className="mt-1 text-xs">E-mail: {i.email_status}</p>}
               <div className="mt-2 flex flex-wrap gap-2">
                 {(i.status === "autorizada" || i.status === "cancelada") && (
-                  <a href={`/api/nfe/${i.id}/xml`} className="rounded-lg border border-border px-2 py-1 text-xs text-secondary hover:underline">
-                    ⬇ XML
-                  </a>
+                  <>
+                    <a
+                      href={`/api/nfe/${i.id}/danfe`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-lg border border-border px-2 py-1 text-xs text-secondary hover:underline"
+                    >
+                      🖨 DANFE (PDF)
+                    </a>
+                    <a href={`/api/nfe/${i.id}/xml`} className="rounded-lg border border-border px-2 py-1 text-xs text-secondary hover:underline">
+                      ⬇ XML
+                    </a>
+                  </>
                 )}
                 {(i.status === "sem_resposta" || i.status === "processando") && (
                   <form action={consultNfe.bind(null, i.id, back)}>

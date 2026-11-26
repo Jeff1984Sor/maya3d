@@ -163,3 +163,19 @@ async def download_xml(invoice_id: int, session: Session) -> Response:
         media_type="application/xml",
         headers={"Content-Disposition": f'attachment; filename="NFe{inv.chave}.xml"'},
     )
+
+
+@router.get("/nfe/{invoice_id}/danfe")
+async def download_danfe(invoice_id: int, session: Session) -> Response:
+    inv = await session.get(FiscalInvoice, invoice_id)
+    if inv is None or inv.status not in ("autorizada", "cancelada"):
+        raise HTTPException(404, "DANFE só de nota autorizada")
+    try:
+        pdf = fiscal.danfe_pdf(inv)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    return Response(
+        pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="DANFE-{inv.number}.pdf"'},
+    )

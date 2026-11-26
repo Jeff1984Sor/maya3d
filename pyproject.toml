@@ -65,3 +65,8 @@ asyncio_mode = "auto"
 testpaths = ["apps/api/tests", "apps/worker/tests", "packages", "tools/tests"]
 addopts = "-ra --strict-markers --import-mode=importlib"
 markers = ["integration: precisa de Postgres (RUN_DB_TESTS=1)"]
+
+[[tool.mypy.overrides]]
+# reportlab (DANFE em PDF) não publica tipos
+module = ["reportlab.*"]
+ignore_missing_imports = true

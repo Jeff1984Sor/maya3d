@@ -39,6 +39,7 @@ from print3d_fiscal import (
     Certificado,
     CertificadoError,
     Destinatario,
+    Difal,
     Emitente,
     Endereco,
     Intermediador,
@@ -50,6 +51,7 @@ from print3d_fiscal import (
     SefazError,
     Transmissor,
     carregar_pfx_base64,
+    gerar_danfe,
     montar,
     nfe_proc,
 )
@@ -186,6 +188,33 @@ async def sefaz_status(
     except SefazError as exc:
         raise FiscalError(str(exc), status=502) from exc
     return {"cstat": ret.cstat, "motivo": ret.motivo, "online": ret.cstat == "107"}
+
+
+def parse_aliquotas(texto: str) -> dict[str, Difal]:
+    """'MG=18;RJ=20+2' -> {'MG': Difal(18, 0), 'RJ': Difal(20, 2)}."""
+    out: dict[str, Difal] = {}
+    for parte in texto.replace(",", ".").replace("\n", ";").split(";"):
+        uf, _, valor = parte.strip().partition("=")
+        if not uf or not valor:
+            continue
+        interna, _, fcp = valor.strip().partition("+")
+        try:
+            out[uf.strip().upper()] = Difal(Decimal(interna.strip()), Decimal(fcp.strip() or 0))
+        except ArithmeticError as exc:
+            raise FiscalError(f"alíquota inválida em '{parte.strip()}'") from exc
+    return out
+
+
+def _difal(values: dict[str, str], uf_dest: str, interna: bool, ie: str | None) -> Difal | None:
+    if values.get("FISCAL_DIFAL") != "sim" or interna or so_digitos(ie):
+        return None
+    tabela = parse_aliquotas(values.get("FISCAL_ALIQ_INTERNAS", ""))
+    if uf_dest.upper() not in tabela:
+        raise FiscalError(
+            f"DIFAL ligado: falta a alíquota interna de {uf_dest.upper()} em Integrações → "
+            "Nota fiscal (ex.: MG=18)"
+        )
+    return tabela[uf_dest.upper()]
 
 
 # --- Destinatário -----------------------------------------------------------------------------
@@ -487,6 +516,7 @@ async def emit(
         pagamentos=(),
         intermediador=intermediador,
         info_complementar=values.get("FISCAL_OBS") or None,
+        difal=_difal(values, r.uf, interna, r.ie),
     )
     try:
         valor = sum((i.valor_bruto for i in items), Decimal(0)) - nota.desconto + nota.frete
@@ -525,6 +555,8 @@ async def _apply_result(
     protocolo: str | None,
     prot_xml: str | None,
 ) -> None:
+    if cstat == "694":  # SEFAZ exige o grupo do estado de destino
+        motivo += " — ligue o DIFAL em Integrações → Nota fiscal e informe a alíquota do estado"
     inv.cstat, inv.motivo = cstat, motivo
     if cstat in ("100", "150") and prot_xml and inv.xml:
         inv.status, inv.protocolo = "autorizada", protocolo
@@ -694,18 +726,31 @@ async def after_authorized(session: AsyncSession, inv: FiscalInvoice, order: Ord
             lines += ["", "Etiqueta de envio (PDF, vale 30 dias):", link]
         if inv.ml_status:
             lines += ["", inv.ml_status]
-    lines += ["", "O XML da nota vai anexo."]
+    lines += ["", "A DANFE (PDF) e o XML da nota vão anexos."]
+    anexos = [mailer.Attachment(filename, xml, "application/xml")]
+    try:
+        pdf = danfe_pdf(inv)
+        anexos.insert(0, mailer.Attachment(f"DANFE-{inv.number}.pdf", pdf, "application/pdf"))
+    except ValueError as exc:  # sem PDF ainda dá para mandar o XML
+        log.warning("nfe: DANFE não gerada", extra={"erro": str(exc)})
     try:
         to = await mailer.send(
             session,
             subject=f"NF-e nº {inv.number} — pedido #{order.number}",
             text="\n".join(lines),
-            attachments=(mailer.Attachment(filename, xml, "application/xml"),),
+            attachments=tuple(anexos),
         )
         inv.email_status = f"enviado para {to} em {datetime.now(BRT):%d/%m %H:%M}"
     except mailer.MailError as exc:
         inv.email_status = str(exc)
     await session.commit()
+
+
+def danfe_pdf(inv: FiscalInvoice) -> bytes:
+    xml = inv.proc_xml or inv.xml
+    if not xml:
+        raise ValueError("nota sem XML")
+    return gerar_danfe(xml, cancelada=inv.status == "cancelada")
 
 
 async def resend(session: AsyncSession, invoice_id: int) -> FiscalInvoice:

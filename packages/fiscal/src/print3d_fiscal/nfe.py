@@ -97,6 +97,29 @@ class RespTecnico:
     fone: str
 
 
+# Alíquota interestadual (Res. Senado 22/1989 e 13/2012): Sul/Sudeste (menos ES) → N/NE/CO/ES
+# = 7%; demais = 12%; mercadoria importada (origem 1, 2, 3, 8) = 4%.
+SUL_SUDESTE = {"SP", "RJ", "MG", "PR", "SC", "RS"}
+ORIGEM_IMPORTADA = {1, 2, 3, 8}
+
+
+def aliquota_interestadual(uf_origem: str, uf_destino: str, origem: int = 0) -> Decimal:
+    if origem in ORIGEM_IMPORTADA:
+        return Decimal(4)
+    if uf_origem.upper() in SUL_SUDESTE and uf_destino.upper() not in SUL_SUDESTE:
+        return Decimal(7)
+    return Decimal(12)
+
+
+@dataclass(frozen=True)
+class Difal:
+    """Venda a consumidor final não contribuinte de outro estado (EC 87/2015): grupo
+    ICMSUFDest. A alíquota interna do destino (e o FCP) vem da configuração."""
+
+    aliquota_interna: Decimal  # do estado de destino, em %
+    aliquota_fcp: Decimal = Decimal(0)
+
+
 @dataclass(frozen=True)
 class Nota:
     emitente: Emitente
@@ -118,6 +141,7 @@ class Nota:
     presenca: int = 2  # 2 = internet
     ver_proc: str = "print3d-fiscal 1.0"
     codigo_numerico: str | None = None
+    difal: Difal | None = None
 
 
 @dataclass(frozen=True)
@@ -256,6 +280,11 @@ def montar(n: Nota, assinador: Assinador) -> NotaMontada:
         t("IE", ie_dest or None),
         t("email", dest.email, limite=60),
     )
+    # DIFAL só existe em venda interestadual a consumidor final não contribuinte
+    usa_difal = (
+        n.difal is not None and not interna and n.consumidor_final and not so_digitos(dest.ie)
+    )
+    difal_tot = [Decimal(0), Decimal(0)]  # FCP, ICMS do destino
     dets = []
     for num, (item, v_frete, v_desc) in enumerate(
         zip(n.itens, fretes, descontos, strict=True), start=1
@@ -312,6 +341,28 @@ def montar(n: Nota, assinador: Assinador) -> NotaMontada:
                 ),
             ),
         )
+        if usa_difal and n.difal is not None:
+            base = item.valor_bruto - v_desc + v_frete
+            inter = aliquota_interestadual(emit.endereco.uf, dest.endereco.uf, item.origem)
+            v_icms_dest = (base * max(n.difal.aliquota_interna - inter, Decimal(0)) / 100).quantize(
+                Decimal("0.01")
+            )
+            v_fcp = (base * n.difal.aliquota_fcp / 100).quantize(Decimal("0.01"))
+            difal_tot[0] += v_fcp
+            difal_tot[1] += v_icms_dest
+            grupo = el(
+                "ICMSUFDest",
+                t("vBCUFDest", dec(base)),
+                t("vBCFCPUFDest", dec(base) if n.difal.aliquota_fcp > 0 else None),
+                t("pFCPUFDest", dec(n.difal.aliquota_fcp, 4)),
+                t("pICMSUFDest", dec(n.difal.aliquota_interna, 4)),
+                t("pICMSInter", dec(inter, 2)),
+                t("pICMSInterPart", "100.0000"),
+                t("vFCPUFDest", dec(v_fcp)),
+                t("vICMSUFDest", dec(v_icms_dest)),
+                t("vICMSUFRemet", "0.00"),
+            )
+            imposto = imposto.replace("</imposto>", grupo + "</imposto>")
         dets.append(el("det", prod, imposto, attrs={"nItem": str(num)}))
 
     zero = "0.00"
@@ -322,6 +373,9 @@ def montar(n: Nota, assinador: Assinador) -> NotaMontada:
             t("vBC", zero),
             t("vICMS", zero),
             t("vICMSDeson", zero),
+            t("vFCPUFDest", dec(difal_tot[0]) if usa_difal else None),
+            t("vICMSUFDest", dec(difal_tot[1]) if usa_difal else None),
+            t("vICMSUFRemet", zero if usa_difal else None),
             t("vFCP", zero),
             t("vBCST", zero),
             t("vST", zero),

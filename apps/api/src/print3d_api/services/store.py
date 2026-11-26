@@ -669,6 +669,8 @@ async def checkout(
     customer.whatsapp = data.whatsapp
     customer.whatsapp_opt_in = data.whatsapp_opt_in
     customer.marketing_opt_in = data.marketing_opt_in
+    if data.cpf:  # para a nota fiscal
+        customer.document = data.cpf
     await session.flush()
 
     order = await orders.create_order(

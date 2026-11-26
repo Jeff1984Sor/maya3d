@@ -206,6 +206,19 @@ FIELDS: tuple[Field, ...] = (
         hint="ex.: texto obrigatório do Simples Nacional",
     ),
     Field(
+        "FISCAL_DIFAL",
+        "notafiscal",
+        "DIFAL em venda para outro estado",
+        choices=("nao", "sim"),
+        hint="sim = a nota leva o ICMS do estado do comprador (grupo ICMSUFDest)",
+    ),
+    Field(
+        "FISCAL_ALIQ_INTERNAS",
+        "notafiscal",
+        "Alíquota interna por estado (DIFAL)",
+        hint="UF=alíquota+FCP separados por ; ex.: MG=18;RJ=20+2 (confirme com o contador)",
+    ),
+    Field(
         "FISCAL_ML_CNPJ",
         "notafiscal",
         "CNPJ do Mercado Livre (intermediador)",

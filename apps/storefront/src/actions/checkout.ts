@@ -19,6 +19,7 @@ export async function placeOrder(_prev: CheckoutState, form: FormData): Promise<
         name: text("name"),
         email: text("email"),
         whatsapp: text("whatsapp"),
+        cpf: text("cpf") || null,
         whatsapp_opt_in: form.get("whatsapp_opt_in") === "on",
         marketing_opt_in: form.get("marketing_opt_in") === "on",
         accept_terms: form.get("accept_terms") === "on",

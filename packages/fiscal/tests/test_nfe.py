@@ -16,6 +16,7 @@ from cryptography.x509.oid import NameOID
 from print3d_fiscal import (
     CertificadoError,
     Destinatario,
+    Difal,
     Emitente,
     Endereco,
     Intermediador,
@@ -25,6 +26,7 @@ from print3d_fiscal import (
     Pagamento,
     Sefaz,
     carregar_pfx_base64,
+    gerar_danfe,
     montar,
     nfe_proc,
 )
@@ -293,3 +295,39 @@ async def test_cancelamento_assinado(pfx_b64: str) -> None:
     assert ret.protocolo == "135260000000002"
     assert f'Id="ID110111{"3" * 44}01"' in enviados[0]
     assert "<Signature " in enviados[0]
+
+
+def test_difal_interestadual(pfx_b64: str) -> None:
+    cert = carregar_pfx_base64(pfx_b64, "senha123")
+    nota = montar(_nota(difal=Difal(Decimal(18), Decimal(2))), cert)
+    raiz = ET.fromstring(nota.xml)  # noqa: S314
+    grupos = [e for e in raiz.iter() if _local(e) == "ICMSUFDest"]
+    assert len(grupos) == 2
+    # item 1: 51,80 - 0,84 de desconto + 10,05 de frete = 61,01; SP→MG = 12%; 18 - 12 = 6%
+    g = grupos[0]
+    assert _achar(g, "vBCUFDest").text == "61.01"
+    assert _achar(g, "pICMSInter").text == "12.00"
+    assert _achar(g, "vICMSUFDest").text == "3.66"
+    assert _achar(g, "vFCPUFDest").text == "1.22"
+    tot = _achar(raiz, "ICMSTot")
+    nomes = [_local(e) for e in tot]
+    assert nomes[2:6] == ["vICMSDeson", "vFCPUFDest", "vICMSUFDest", "vICMSUFRemet"]
+    # dentro do imposto, o grupo vem depois de COFINS
+    imposto = _achar(raiz, "imposto")
+    assert [_local(e) for e in imposto][-1] == "ICMSUFDest"
+    # venda no mesmo estado não leva DIFAL
+    interna = montar(_nota(uf_dest="SP", difal=Difal(Decimal(18))), cert)
+    assert "ICMSUFDest" not in interna.xml
+
+
+def test_danfe_pdf(pfx_b64: str) -> None:
+    cert = carregar_pfx_base64(pfx_b64, "senha123")
+    nota = montar(_nota(), cert)
+    prot = (
+        '<protNFe versao="4.00"><infProt><nProt>135260000000001</nProt>'
+        "<dhRecbto>2026-11-26T10:31:00-03:00</dhRecbto><cStat>100</cStat></infProt></protNFe>"
+    )
+    pdf = gerar_danfe(nfe_proc(nota.xml, prot))
+    assert pdf.startswith(b"%PDF")
+    assert len(pdf) > 3000
+    assert gerar_danfe(nfe_proc(nota.xml, prot), cancelada=True).startswith(b"%PDF")
