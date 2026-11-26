@@ -129,7 +129,7 @@ class Nota:
     serie: int
     emissao: datetime  # com fuso
     ambiente: int  # 1 produção, 2 homologação
-    natureza: str = "Venda de producao do estabelecimento"
+    natureza: str = "Venda de mercadoria"  # MEI (CRT 4) só pode CFOP 5102/6102
     mod_frete: int = 0  # 0 remetente (CIF), 1 destinatário (FOB), 9 sem frete
     frete: Decimal = Decimal(0)
     desconto: Decimal = Decimal(0)

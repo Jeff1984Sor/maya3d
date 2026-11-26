@@ -196,8 +196,18 @@ FIELDS: tuple[Field, ...] = (
         "NCM padrão",
         hint="usado quando o produto não tem NCM próprio (confirme com o contador)",
     ),
-    Field("FISCAL_CFOP_INTERNA", "notafiscal", "CFOP dentro do estado", hint="ex.: 5101"),
-    Field("FISCAL_CFOP_INTERESTADUAL", "notafiscal", "CFOP para outro estado", hint="ex.: 6107"),
+    Field(
+        "FISCAL_CFOP_INTERNA",
+        "notafiscal",
+        "CFOP dentro do estado",
+        hint="MEI: 5102 (a SEFAZ recusa outros)",
+    ),
+    Field(
+        "FISCAL_CFOP_INTERESTADUAL",
+        "notafiscal",
+        "CFOP para outro estado",
+        hint="MEI: 6102 (a SEFAZ recusa outros)",
+    ),
     Field("FISCAL_CSOSN", "notafiscal", "CSOSN", choices=("102", "103", "300", "400")),
     Field(
         "FISCAL_OBS",
